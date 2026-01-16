@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { createSignal } from 'solid-js';
+import { Download, FileText } from 'lucide-solid';
 
 const ZERO_WIDTH_CHARS = {
   '0': '\u200B',
@@ -7,15 +7,15 @@ const ZERO_WIDTH_CHARS = {
 };
 
 function PdfSteganography() {
-  const [mode, setMode] = useState<'encode' | 'decode'>('encode');
-  const [secretMessage, setSecretMessage] = useState('');
-  const [coverText, setCoverText] = useState('This is a sample document that contains hidden information. You can edit this text to be anything you want.');
-  const [decodedMessage, setDecodedMessage] = useState('');
+  const [mode, setMode] = createSignal('encode');
+  const [secretMessage, setSecretMessage] = createSignal('');
+  const [coverText, setCoverText] = createSignal('This is a sample document that contains hidden information. You can edit this text to be anything you want.');
+  const [decodedMessage, setDecodedMessage] = createSignal('');
 
   const encodeMessage = () => {
-    if (!secretMessage || !coverText) return;
+    if (!secretMessage() || !coverText()) return;
 
-    const binary = secretMessage
+    const binary = secretMessage()
       .split('')
       .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
       .join('');
@@ -28,13 +28,13 @@ function PdfSteganography() {
       })
       .join('');
 
-    return coverText + encoded + '###END###';
+    return coverText() + encoded + '###END###';
   };
 
   const decodeMessage = () => {
-    if (!coverText) return;
+    if (!coverText()) return;
 
-    const zwChars = coverText
+    const zwChars = coverText()
       .split('')
       .filter(char => Object.values(ZERO_WIDTH_CHARS).includes(char))
       .map(char => {
@@ -140,12 +140,12 @@ ${400 + encodedText.length}
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4 mb-6">
+    <div class="space-y-6">
+      <div class="flex gap-4 mb-6">
         <button
           onClick={() => setMode('encode')}
-          className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-            mode === 'encode'
+          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+            mode() === 'encode'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -154,8 +154,8 @@ ${400 + encodedText.length}
         </button>
         <button
           onClick={() => setMode('decode')}
-          className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-            mode === 'decode'
+          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+            mode() === 'decode'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -164,91 +164,91 @@ ${400 + encodedText.length}
         </button>
       </div>
 
-      {mode === 'encode' ? (
-        <div className="space-y-6">
+      {mode() === 'encode' ? (
+        <div class="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
               Secret Message
             </label>
             <textarea
-              value={secretMessage}
-              onChange={(e) => setSecretMessage(e.target.value)}
+              value={secretMessage()}
+              onInput={(e) => setSecretMessage(e.currentTarget.value)}
               placeholder="Enter your secret message..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
               Cover Text (Visible Content)
             </label>
             <textarea
-              value={coverText}
-              onChange={(e) => setCoverText(e.target.value)}
+              value={coverText()}
+              onInput={(e) => setCoverText(e.currentTarget.value)}
               placeholder="Enter the visible text for your document..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={6}
             />
           </div>
 
-          <div className="flex gap-4">
+          <div class="flex gap-4">
             <button
               onClick={downloadAsText}
-              disabled={!secretMessage || !coverText}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!secretMessage() || !coverText()}
+              class="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              <Download className="w-5 h-5" />
+              <Download class="w-5 h-5" />
               Download as TXT
             </button>
             <button
               onClick={downloadAsPdf}
-              disabled={!secretMessage || !coverText}
-              className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!secretMessage() || !coverText()}
+              class="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              <FileText className="w-5 h-5" />
+              <FileText class="w-5 h-5" />
               Download as PDF
             </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div class="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
               Encoded Text (Paste from Document)
             </label>
             <textarea
-              value={coverText}
-              onChange={(e) => setCoverText(e.target.value)}
+              value={coverText()}
+              onInput={(e) => setCoverText(e.currentTarget.value)}
               placeholder="Paste the text from your encoded document here..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={6}
             />
           </div>
 
           <button
             onClick={decodeMessage}
-            disabled={!coverText}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!coverText()}
+            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Reveal Hidden Message
           </button>
 
-          {decodedMessage && (
+          {decodedMessage() && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
                 Decoded Message
               </label>
-              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
-                {decodedMessage}
+              <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
+                {decodedMessage()}
               </div>
             </div>
           )}
         </div>
       )}
 
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p className="text-sm text-blue-800">
+      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+        <p class="text-sm text-blue-800">
           <strong>How it works:</strong> This method hides your message using invisible zero-width characters embedded in the document text. The document appears normal but contains hidden data.
         </p>
       </div>

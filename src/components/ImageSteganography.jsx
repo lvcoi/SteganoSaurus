@@ -1,24 +1,24 @@
-import { useState, useRef } from 'react';
-import { Upload, Download } from 'lucide-react';
+import { createSignal } from 'solid-js';
+import { Upload, Download } from 'lucide-solid';
 
 function ImageSteganography() {
-  const [mode, setMode] = useState<'encode' | 'decode'>('encode');
-  const [secretMessage, setSecretMessage] = useState('');
-  const [decodedMessage, setDecodedMessage] = useState('');
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = createSignal('encode');
+  const [secretMessage, setSecretMessage] = createSignal('');
+  const [decodedMessage, setDecodedMessage] = createSignal('');
+  const [imagePreview, setImagePreview] = createSignal(null);
+  let canvasRef;
+  let fileInputRef;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = (e) => {
+    const file = e.currentTarget.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        setImagePreview(event.target?.result as string);
-        const canvas = canvasRef.current;
+        setImagePreview(event.target?.result);
+        const canvas = canvasRef;
         if (canvas) {
           canvas.width = img.width;
           canvas.height = img.height;
@@ -28,14 +28,14 @@ function ImageSteganography() {
           }
         }
       };
-      img.src = event.target?.result as string;
+      img.src = event.target?.result;
     };
     reader.readAsDataURL(file);
   };
 
   const encodeMessage = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !secretMessage) return;
+    const canvas = canvasRef;
+    if (!canvas || !secretMessage()) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -43,7 +43,7 @@ function ImageSteganography() {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
-    const messageWithDelimiter = secretMessage + '###END###';
+    const messageWithDelimiter = secretMessage() + '###END###';
     const binary = messageWithDelimiter
       .split('')
       .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
@@ -63,7 +63,7 @@ function ImageSteganography() {
   };
 
   const decodeMessage = () => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
@@ -95,7 +95,7 @@ function ImageSteganography() {
   };
 
   const downloadImage = () => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef;
     if (!canvas) return;
 
     const link = document.createElement('a');
@@ -105,12 +105,12 @@ function ImageSteganography() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4 mb-6">
+    <div class="space-y-6">
+      <div class="flex gap-4 mb-6">
         <button
           onClick={() => setMode('encode')}
-          className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-            mode === 'encode'
+          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+            mode() === 'encode'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -119,8 +119,8 @@ function ImageSteganography() {
         </button>
         <button
           onClick={() => setMode('decode')}
-          className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
-            mode === 'decode'
+          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+            mode() === 'decode'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -130,108 +130,108 @@ function ImageSteganography() {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
           Upload Image
         </label>
-        <div className="flex items-center gap-4">
+        <div class="flex items-center gap-4">
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={handleImageUpload}
-            className="hidden"
+            class="hidden"
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            onClick={() => fileInputRef?.click()}
+            class="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
-            <Upload className="w-5 h-5" />
+            <Upload class="w-5 h-5" />
             Choose Image
           </button>
         </div>
       </div>
 
-      {mode === 'encode' ? (
-        <div className="space-y-6">
+      {mode() === 'encode' ? (
+        <div class="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
               Secret Message
             </label>
             <textarea
-              value={secretMessage}
-              onChange={(e) => setSecretMessage(e.target.value)}
+              value={secretMessage()}
+              onInput={(e) => setSecretMessage(e.currentTarget.value)}
               placeholder="Enter your secret message..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}
             />
           </div>
 
           <button
             onClick={encodeMessage}
-            disabled={!imagePreview || !secretMessage}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!imagePreview() || !secretMessage()}
+            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Hide Message in Image
           </button>
 
-          {imagePreview && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <label className="block text-sm font-medium text-gray-700">
+          {imagePreview() && (
+            <div class="space-y-4">
+              <div class="flex justify-between items-center">
+                <label class="block text-sm font-medium text-gray-700">
                   Image Preview
                 </label>
                 <button
                   onClick={downloadImage}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download class="w-4 h-4" />
                   Download
                 </button>
               </div>
-              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                <img src={imagePreview} alt="Preview" className="max-w-full h-auto" />
+              <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <img src={imagePreview()} alt="Preview" class="max-w-full h-auto" />
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div class="space-y-6">
           <button
             onClick={decodeMessage}
-            disabled={!imagePreview}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!imagePreview()}
+            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Reveal Hidden Message
           </button>
 
-          {decodedMessage && (
+          {decodedMessage() && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
                 Decoded Message
               </label>
-              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
-                {decodedMessage}
+              <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
+                {decodedMessage()}
               </div>
             </div>
           )}
 
-          {imagePreview && (
+          {imagePreview() && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
                 Image Preview
               </label>
-              <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                <img src={imagePreview} alt="Preview" className="max-w-full h-auto" />
+              <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <img src={imagePreview()} alt="Preview" class="max-w-full h-auto" />
               </div>
             </div>
           )}
         </div>
       )}
 
-      <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={canvasRef} class="hidden" />
 
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p className="text-sm text-blue-800">
+      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+        <p class="text-sm text-blue-800">
           <strong>How it works:</strong> This method uses LSB (Least Significant Bit) encoding to hide your message in the image pixels. The changes are invisible to the human eye but can be decoded later.
         </p>
       </div>
