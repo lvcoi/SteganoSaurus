@@ -119,17 +119,18 @@ function EmojiSteganography() {
   };
 
   return (
-    <div class="space-y-6">
-      <div class="flex gap-4 mb-6">
+    <div class="space-y-7">
+      {/* Mode Toggle */}
+      <div class="flex gap-3 p-1.5 bg-gray-100 rounded-xl">
         <button
           onClick={() => {
             logger.info('[EmojiSteganography] set mode: encode');
             setMode('encode');
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'encode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Encode
@@ -139,10 +140,10 @@ function EmojiSteganography() {
             logger.info('[EmojiSteganography] set mode: decode');
             setMode('decode');
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'decode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Decode
@@ -152,7 +153,7 @@ function EmojiSteganography() {
       {mode() === 'encode' ? (
         <div class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-semibold text-gray-800 mb-3">
               Secret Message
             </label>
             <textarea
@@ -162,13 +163,13 @@ function EmojiSteganography() {
                 setSecretMessage(e.currentTarget.value);
               }}
               placeholder="Enter your secret message..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 bg-white hover:border-gray-300"
               rows={4}
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-semibold text-gray-800 mb-3">
               Cover Emoji Text
             </label>
             <input
@@ -179,13 +180,13 @@ function EmojiSteganography() {
                 setCoverEmoji(e.currentTarget.value);
               }}
               placeholder="🌟✨🎉"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-2xl"
+              class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-2xl transition-all duration-200 bg-white hover:border-gray-300"
             />
           </div>
 
           <button
             onClick={encodeMessage}
-            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
           >
             Hide Message in Emoji
           </button>
@@ -197,17 +198,17 @@ function EmojiSteganography() {
           </button>
 
           {output() && (
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5">
+              <label class="block text-sm font-semibold text-gray-800 mb-3">
                 Encoded Output (Copy This!)
               </label>
               <div class="relative">
-                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-2xl break-all">
+                <div class="w-full px-4 py-4 bg-white border-2 border-green-300 rounded-xl text-2xl break-all shadow-sm">
                   {output()}
                 </div>
                 <button
                   onClick={copyToClipboard}
-                  class="absolute top-2 right-2 p-2 bg-white rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                  class="absolute top-3 right-3 p-2.5 bg-white rounded-lg border-2 border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all duration-200 shadow-md"
                 >
                   {copied() ? (
                     <Check class="w-5 h-5 text-green-600" />
@@ -222,7 +223,7 @@ function EmojiSteganography() {
       ) : (
         <div class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-semibold text-gray-800 mb-3">
               Encoded Emoji Text
             </label>
             <textarea
@@ -232,7 +233,7 @@ function EmojiSteganography() {
                 setOutput(e.currentTarget.value);
               }}
               placeholder="Paste encoded emoji text here..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-2xl"
+              class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-2xl transition-all duration-200 bg-white hover:border-gray-300"
               rows={4}
             />
           </div>
@@ -246,17 +247,17 @@ function EmojiSteganography() {
 
           <button
             onClick={decodeMessage}
-            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
           >
             Reveal Hidden Message
           </button>
 
           {secretMessage() && (
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5">
+              <label class="block text-sm font-semibold text-gray-800 mb-3">
                 Decoded Message
               </label>
-              <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200">
+              <div class="px-4 py-4 bg-white border-2 border-green-300 rounded-xl shadow-sm">
                 {secretMessage()}
               </div>
             </div>
@@ -264,10 +265,20 @@ function EmojiSteganography() {
         </div>
       )}
 
-      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p class="text-sm text-blue-800">
-          <strong>How it works:</strong> This method hides your message using invisible zero-width characters between the emoji. The emoji look normal but contain hidden data.
-        </p>
+      {/* Info Box */}
+      <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 p-5">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -mr-16 -mt-16" />
+        <div class="relative flex items-start gap-3">
+          <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center mt-0.5">
+            <span class="text-white text-lg">💡</span>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-blue-900 mb-1">How it works</p>
+            <p class="text-sm text-blue-800 leading-relaxed">
+              This method hides your message using invisible zero-width characters between the emoji. The emoji look normal but contain hidden data.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
