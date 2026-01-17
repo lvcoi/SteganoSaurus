@@ -144,4 +144,3 @@ This tool is intended for educational and legitimate purposes only. Users are re
 ---
 
   Made with ❤️ by the SteganoSaurus team
-
