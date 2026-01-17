@@ -7,7 +7,7 @@
 
 > Hide messages in plain sight with secure client-side steganography
 
-StegAsarus is a powerful web-based steganography tool that allows you to encode and decode secret messages hidden within various digital formats. All processing happens directly in your browser - your data never leaves your device.
+SteganoSaurus is a powerful web-based steganography tool that allows you to encode and decode secret messages hidden within various digital formats. All processing happens directly in your browser - your data never leaves your device.
 
 ## ✨ Features
 
@@ -30,8 +30,8 @@ StegAsarus is a powerful web-based steganography tool that allows you to encode 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/StegAsarus.git
-cd StegAsarus
+git clone https://github.com/yourusername/SteganoSaurus.git
+cd SteganoSaurus
 ```
 
 2. Install dependencies:
@@ -123,5 +123,5 @@ This tool is intended for educational and legitimate purposes only. Users are re
 ---
 
 <div align="center">
-  Made with ❤️ by the StegAsarus team
+  Made with ❤️ by the SteganoSaurus team
 </div>

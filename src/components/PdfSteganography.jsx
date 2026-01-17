@@ -1,189 +1,177 @@
 import { createSignal, onMount } from 'solid-js';
-import { Download, FileText } from 'lucide-solid';
+import { Download, FileText, Upload } from 'lucide-solid';
 import { logger } from '../utils/logger.js';
-const ZERO_WIDTH_CHARS = {
-  '0': '\u200B',
-  '1': '\u200C',
+
+const MARKER_START = '###STEGANO_START###';
+const MARKER_END = '###STEGANO_END###';
+
+const encodeBase64Utf8 = (value) => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+};
+
+const decodeBase64Utf8 = (value) => {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+};
+
+const findSubarray = (haystack, needle, start = 0) => {
+  if (!needle.length || needle.length > haystack.length) return -1;
+  for (let i = start; i <= haystack.length - needle.length; i += 1) {
+    let match = true;
+    for (let j = 0; j < needle.length; j += 1) {
+      if (haystack[i + j] !== needle[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return i;
+  }
+  return -1;
 };
 
 function PdfSteganography() {
   const [mode, setMode] = createSignal('encode');
   const [secretMessage, setSecretMessage] = createSignal('');
-  const [coverText, setCoverText] = createSignal('This is a sample document that contains hidden information. You can edit this text to be anything you want.');
   const [decodedMessage, setDecodedMessage] = createSignal('');
+  const [encodePdfBytes, setEncodePdfBytes] = createSignal(null);
+  const [encodePdfName, setEncodePdfName] = createSignal('');
+  const [decodePdfBytes, setDecodePdfBytes] = createSignal(null);
+  const [decodePdfName, setDecodePdfName] = createSignal('');
+  let fileInputRef;
 
   onMount(() => {
     logger.info('[PdfSteganography] mounted');
   });
 
-  const encodeMessage = () => {
-    logger.info('[PdfSteganography] encodeMessage invoked');
+  const handlePdfUpload = (e) => {
     try {
-      if (!secretMessage() || !coverText()) {
-        logger.warn('[PdfSteganography] encodeMessage aborted: missing secret or coverText');
+      const file = e.currentTarget.files?.[0];
+      if (!file) {
+        logger.warn('[PdfSteganography] handlePdfUpload: no file selected');
+        return;
+      }
+      logger.info('[PdfSteganography] handlePdfUpload file', { name: file.name, size: file.size, type: file.type });
+      if (mode() === 'encode') {
+        setEncodePdfName(file.name);
+      } else {
+        setDecodePdfName(file.name);
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const buffer = event.target?.result;
+        if (!buffer) {
+          logger.warn('[PdfSteganography] handlePdfUpload: empty buffer');
+          return;
+        }
+        const bytes = new Uint8Array(buffer);
+        if (mode() === 'encode') {
+          setEncodePdfBytes(bytes);
+        } else {
+          setDecodePdfBytes(bytes);
+          setDecodedMessage('');
+        }
+      };
+      reader.onerror = (err) => {
+        logger.error('[PdfSteganography] FileReader error', err);
+        logger.userError('Failed to read PDF file.', { err });
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      logger.error('[PdfSteganography] handlePdfUpload error', err);
+      logger.userError('PDF upload error.', { err });
+    }
+  };
+
+  const downloadEncodedPdf = () => {
+    logger.info('[PdfSteganography] downloadEncodedPdf clicked');
+    try {
+      const original = encodePdfBytes();
+      if (!original || !secretMessage()) {
+        logger.warn('[PdfSteganography] downloadEncodedPdf aborted: missing pdf or message');
         return;
       }
 
-      const binary = secretMessage()
-        .split('')
-        .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
-        .join('');
+      const encodedMessage = encodeBase64Utf8(secretMessage());
+      const markerBytes = new TextEncoder().encode(MARKER_START + encodedMessage + MARKER_END);
+      const combined = new Uint8Array(original.length + markerBytes.length);
+      combined.set(original, 0);
+      combined.set(markerBytes, original.length);
 
-      const encoded = binary
-        .split('')
-        .map(bit => {
-          if (bit === '0') return ZERO_WIDTH_CHARS['0'];
-          else return ZERO_WIDTH_CHARS['1'];
-        })
-        .join('');
-
-      const result = coverText() + encoded + '###END###';
-      logger.info('[PdfSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
-      return result;
+      const blob = new Blob([combined], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = encodePdfName() ? encodePdfName().replace(/\.pdf$/i, '') + '-stego.pdf' : 'stego-document.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+      logger.info('[PdfSteganography] encoded PDF download generated');
     } catch (err) {
-      logger.error('[PdfSteganography] encodeMessage error', err);
+      logger.error('[PdfSteganography] downloadEncodedPdf error', err);
+      logger.userError('Failed to generate encoded PDF.', { err });
     }
   };
 
   const decodeMessage = () => {
     logger.info('[PdfSteganography] decodeMessage invoked');
     try {
-      if (!coverText()) {
-        logger.warn('[PdfSteganography] decodeMessage aborted: no coverText');
+      const data = decodePdfBytes();
+      if (!data) {
+        logger.warn('[PdfSteganography] decodeMessage aborted: no PDF loaded');
         return;
       }
 
-      const zwChars = coverText()
-        .split('')
-        .filter(char => Object.values(ZERO_WIDTH_CHARS).includes(char))
-        .map(char => {
-          if (char === ZERO_WIDTH_CHARS['0']) return '0';
-          else return '1';
-        })
-        .join('');
+      const encoder = new TextEncoder();
+      const startBytes = encoder.encode(MARKER_START);
+      const endBytes = encoder.encode(MARKER_END);
 
-      let decoded = '';
-      for (let i = 0; i < zwChars.length; i += 8) {
-        const byte = zwChars.slice(i, i + 8);
-        if (byte.length === 8) {
-          decoded += String.fromCharCode(parseInt(byte, 2));
-        }
+      const startIndex = findSubarray(data, startBytes, 0);
+      if (startIndex === -1) {
+        logger.warn('[PdfSteganography] no marker found');
+        setDecodedMessage('No hidden message found in this PDF.');
+        return;
       }
 
+      const messageStart = startIndex + startBytes.length;
+      const endIndex = findSubarray(data, endBytes, messageStart);
+      if (endIndex === -1) {
+        logger.warn('[PdfSteganography] end marker missing');
+        setDecodedMessage('Corrupted hidden message.');
+        return;
+      }
+
+      const messageBytes = data.slice(messageStart, endIndex);
+      const messageBase64 = new TextDecoder().decode(messageBytes);
+      const decoded = decodeBase64Utf8(messageBase64);
       setDecodedMessage(decoded);
-      logger.info('[PdfSteganography] decodeMessage complete', { decodedLen: decoded.length });
+      logger.info('[PdfSteganography] decode complete', { decodedLen: decoded.length });
     } catch (err) {
       logger.error('[PdfSteganography] decodeMessage error', err);
-    }
-  };
-
-  const downloadAsText = () => {
-    logger.info('[PdfSteganography] downloadAsText clicked');
-    try {
-      const encodedText = encodeMessage();
-      if (!encodedText) return;
-
-      const blob = new Blob([encodedText], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'stego-document.txt';
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      logger.error('[PdfSteganography] downloadAsText error', err);
-    }
-  };
-
-  const downloadAsPdf = async () => {
-    logger.info('[PdfSteganography] downloadAsPdf clicked');
-    try {
-      const encodedText = encodeMessage();
-      if (!encodedText) return;
-
-    const pdfContent = `%PDF-1.4
-1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-2 0 obj
-<<
-/Type /Pages
-/Kids [3 0 R]
-/Count 1
->>
-endobj
-3 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/MediaBox [0 0 612 792]
-/Contents 4 0 R
-/Resources <<
-/Font <<
-/F1 <<
-/Type /Font
-/Subtype /Type1
-/BaseFont /Helvetica
->>
->>
->>
->>
-endobj
-4 0 obj
-<<
-/Length ${encodedText.length + 100}
->>
-stream
-BT
-/F1 12 Tf
-50 700 Td
-(${encodedText.replace(/\n/g, ') Tj T* (')}) Tj
-ET
-endstream
-endobj
-xref
-0 5
-0000000000 65535 f
-0000000009 00000 n
-0000000058 00000 n
-0000000115 00000 n
-0000000317 00000 n
-trailer
-<<
-/Size 5
-/Root 1 0 R
->>
-startxref
-${400 + encodedText.length}
-%%EOF`;
-
-      const blob = new Blob([pdfContent], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'stego-document.pdf';
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      logger.error('[PdfSteganography] downloadAsPdf error', err);
+      logger.userError('Failed to decode message from PDF.', { err });
     }
   };
 
   return (
-    <div class="space-y-6">
-      <div class="flex gap-4 mb-6">
+    <div class="space-y-7">
+      <div class="flex gap-3 p-1.5 bg-gray-100 rounded-xl">
         <button
           onClick={() => {
             logger.info('[PdfSteganography] set mode: encode');
             setMode('encode');
+            setDecodedMessage('');
+            if (fileInputRef) fileInputRef.value = '';
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'encode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Encode
@@ -192,21 +180,54 @@ ${400 + encodedText.length}
           onClick={() => {
             logger.info('[PdfSteganography] set mode: decode');
             setMode('decode');
+            setSecretMessage('');
+            if (fileInputRef) fileInputRef.value = '';
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'decode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Decode
         </button>
       </div>
 
+      <div>
+        <label class="block text-sm font-semibold text-gray-800 mb-3">
+          Upload PDF
+        </label>
+        <div class="flex items-center gap-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handlePdfUpload}
+            class="hidden"
+          />
+          <button
+            onClick={() => {
+              logger.info('[PdfSteganography] open file picker');
+              fileInputRef?.click();
+            }}
+            class="flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-gray-100 to-gray-50 border-2 border-gray-200 text-gray-700 rounded-xl hover:border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-white transition-all duration-200 font-semibold shadow-sm"
+          >
+            <Upload class="w-5 h-5" />
+            Choose PDF
+          </button>
+          {mode() === 'encode' && encodePdfName() && (
+            <span class="text-sm text-gray-600 truncate font-medium">{encodePdfName()}</span>
+          )}
+          {mode() === 'decode' && decodePdfName() && (
+            <span class="text-sm text-gray-600 truncate font-medium">{decodePdfName()}</span>
+          )}
+        </div>
+      </div>
+
       {mode() === 'encode' ? (
         <div class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-semibold text-gray-800 mb-3">
               Secret Message
             </label>
             <textarea
@@ -216,78 +237,36 @@ ${400 + encodedText.length}
                 setSecretMessage(e.currentTarget.value);
               }}
               placeholder="Enter your secret message..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 bg-white hover:border-gray-300"
               rows={4}
             />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Cover Text (Visible Content)
-            </label>
-            <textarea
-              value={coverText()}
-              onInput={(e) => {
-                logger.info('[PdfSteganography] coverText input len', e.currentTarget.value.length);
-                setCoverText(e.currentTarget.value);
-              }}
-              placeholder="Enter the visible text for your document..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={6}
-            />
-          </div>
-
-          <div class="flex gap-4">
-            <button
-              onClick={downloadAsText}
-              disabled={!secretMessage() || !coverText()}
-              class="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <Download class="w-5 h-5" />
-              Download as TXT
-            </button>
-            <button
-              onClick={downloadAsPdf}
-              disabled={!secretMessage() || !coverText()}
-              class="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <FileText class="w-5 h-5" />
-              Download as PDF
-            </button>
-          </div>
+          <button
+            onClick={downloadEncodedPdf}
+            disabled={!secretMessage() || !encodePdfBytes()}
+            class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
+          >
+            <Download class="w-5 h-5" />
+            Download PDF with Hidden Message
+          </button>
         </div>
       ) : (
         <div class="space-y-6">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Encoded Text (Paste from Document)
-            </label>
-            <textarea
-              value={coverText()}
-              onInput={(e) => {
-                logger.info('[PdfSteganography] coverText input len', e.currentTarget.value.length);
-                setCoverText(e.currentTarget.value);
-              }}
-              placeholder="Paste the text from your encoded document here..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={6}
-            />
-          </div>
-
           <button
             onClick={decodeMessage}
-            disabled={!coverText()}
-            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!decodePdfBytes()}
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
           >
             Reveal Hidden Message
           </button>
 
           {decodedMessage() && (
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5">
+              <label class="block text-sm font-semibold text-gray-800 mb-3">
                 Decoded Message
               </label>
-              <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
+              <div class="px-4 py-4 bg-white border-2 border-green-300 rounded-xl shadow-sm whitespace-pre-wrap">
                 {decodedMessage()}
               </div>
             </div>
@@ -295,10 +274,19 @@ ${400 + encodedText.length}
         </div>
       )}
 
-      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p class="text-sm text-blue-800">
-          <strong>How it works:</strong> This method hides your message using invisible zero-width characters embedded in the document text. The document appears normal but contains hidden data.
-        </p>
+      <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 p-5">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -mr-16 -mt-16" />
+        <div class="relative flex items-start gap-3">
+          <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center mt-0.5">
+            <span class="text-white text-lg">💡</span>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-blue-900 mb-1">How it works</p>
+            <p class="text-sm text-blue-800 leading-relaxed">
+              This method appends an encoded message to the end of the PDF file. PDF readers ignore trailing data, but the message can be recovered by scanning for the hidden marker.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
