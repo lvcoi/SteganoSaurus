@@ -9,7 +9,16 @@ export default [
       ecmaVersion: 2020,
       sourceType: 'module',
       globals: globals.browser,
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
     },
-    rules: js.configs.recommended.rules,
+    rules: {
+      ...js.configs.recommended.rules,
+      // JSX components/imports are used within JSX; avoid false positives
+      'no-unused-vars': 'off',
+    },
   },
 ];

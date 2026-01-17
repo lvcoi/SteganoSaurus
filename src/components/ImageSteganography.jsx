@@ -1,4 +1,5 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
+import { logger } from '../utils/logger.js';
 import { Upload, Download } from 'lucide-solid';
 
 function ImageSteganography() {
@@ -9,106 +10,164 @@ function ImageSteganography() {
   let canvasRef;
   let fileInputRef;
 
-  const handleImageUpload = (e) => {
-    const file = e.currentTarget.files?.[0];
-    if (!file) return;
+  onMount(() => {
+    logger.info('[ImageSteganography] mounted');
+  });
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        setImagePreview(event.target?.result);
-        const canvas = canvasRef;
-        if (canvas) {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
+  const handleImageUpload = (e) => {
+    try {
+      const file = e.currentTarget.files?.[0];
+      if (!file) {
+        logger.warn('[ImageSteganography] handleImageUpload: no file selected');
+        return;
+      }
+      logger.info('[ImageSteganography] handleImageUpload file', { name: file.name, size: file.size, type: file.type });
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          setImagePreview(event.target?.result);
+          const canvas = canvasRef;
+          if (canvas) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              logger.debug('[ImageSteganography] canvas prepared', { width: canvas.width, height: canvas.height });
+            }
           }
-        }
+        };
+        img.src = event.target?.result;
       };
-      img.src = event.target?.result;
-    };
-    reader.readAsDataURL(file);
+      reader.onerror = (err) => {
+        logger.error('[ImageSteganography] FileReader error', err);
+        logger.userError('Failed to read image file.', { err });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      logger.error('[ImageSteganography] handleImageUpload error', err);
+      logger.userError('Image upload error.', { err });
+    }
   };
 
   const encodeMessage = () => {
-    const canvas = canvasRef;
-    if (!canvas || !secretMessage()) return;
+    logger.info('[ImageSteganography] encodeMessage invoked');
+    try {
+      const canvas = canvasRef;
+      if (!canvas || !secretMessage()) {
+        logger.warn('[ImageSteganography] encodeMessage aborted: missing canvas or secretMessage');
+        return;
+      }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        logger.warn('[ImageSteganography] encodeMessage aborted: no 2d context');
+        return;
+      }
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    const messageWithDelimiter = secretMessage() + '###END###';
-    const binary = messageWithDelimiter
-      .split('')
-      .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
-      .join('');
+      const messageWithDelimiter = secretMessage() + '###END###';
+      const binary = messageWithDelimiter
+        .split('')
+        .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
+        .join('');
 
-    if (binary.length > data.length / 4) {
-      alert('Message is too long for this image!');
-      return;
+      if (binary.length > data.length / 4) {
+        logger.warn('[ImageSteganography] message too long for image', { bits: binary.length, capacity: data.length / 4 });
+        alert('Message is too long for this image!');
+        logger.userError('Message is too long for this image.', { bits: binary.length, capacity: data.length / 4 });
+        return;
+      }
+
+      for (let i = 0; i < binary.length; i++) {
+        data[i * 4] = (data[i * 4] & 0xFE) | parseInt(binary[i]);
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      setImagePreview(canvas.toDataURL('image/png'));
+      logger.info('[ImageSteganography] encode complete', { secretLen: secretMessage().length });
+    } catch (err) {
+      logger.error('[ImageSteganography] encodeMessage error', err);
+      logger.userError('Failed to encode message into image.', { err });
     }
-
-    for (let i = 0; i < binary.length; i++) {
-      data[i * 4] = (data[i * 4] & 0xFE) | parseInt(binary[i]);
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    setImagePreview(canvas.toDataURL('image/png'));
   };
 
   const decodeMessage = () => {
-    const canvas = canvasRef;
-    if (!canvas) return;
+    logger.info('[ImageSteganography] decodeMessage invoked');
+    try {
+      const canvas = canvasRef;
+      if (!canvas) {
+        logger.warn('[ImageSteganography] decodeMessage aborted: no canvas');
+        return;
+      }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        logger.warn('[ImageSteganography] decodeMessage aborted: no 2d context');
+        return;
+      }
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    let binary = '';
-    for (let i = 0; i < data.length / 4; i++) {
-      binary += (data[i * 4] & 1).toString();
-    }
+      let binary = '';
+      for (let i = 0; i < data.length / 4; i++) {
+        binary += (data[i * 4] & 1).toString();
+      }
 
-    let message = '';
-    for (let i = 0; i < binary.length; i += 8) {
-      const byte = binary.slice(i, i + 8);
-      if (byte.length === 8) {
-        const char = String.fromCharCode(parseInt(byte, 2));
-        message += char;
+      let message = '';
+      for (let i = 0; i < binary.length; i += 8) {
+        const byte = binary.slice(i, i + 8);
+        if (byte.length === 8) {
+          const char = String.fromCharCode(parseInt(byte, 2));
+          message += char;
 
-        if (message.endsWith('###END###')) {
-          message = message.slice(0, -9);
-          break;
+          if (message.endsWith('###END###')) {
+            message = message.slice(0, -9);
+            break;
+          }
         }
       }
-    }
 
-    setDecodedMessage(message);
+      setDecodedMessage(message);
+      logger.info('[ImageSteganography] decode complete', { decodedLen: message.length });
+    } catch (err) {
+      logger.error('[ImageSteganography] decodeMessage error', err);
+      logger.userError('Failed to decode message from image.', { err });
+    }
   };
 
   const downloadImage = () => {
-    const canvas = canvasRef;
-    if (!canvas) return;
+    logger.info('[ImageSteganography] downloadImage clicked');
+    try {
+      const canvas = canvasRef;
+      if (!canvas) {
+        logger.warn('[ImageSteganography] no canvas to download');
+        return;
+      }
 
-    const link = document.createElement('a');
-    link.download = 'stego-image.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+      const link = document.createElement('a');
+      link.download = 'stego-image.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      logger.error('[ImageSteganography] downloadImage error', err);
+      logger.userError('Failed to generate download.', { err });
+    }
   };
 
   return (
     <div class="space-y-6">
       <div class="flex gap-4 mb-6">
         <button
-          onClick={() => setMode('encode')}
+          onClick={() => {
+            logger.info('[ImageSteganography] set mode: encode');
+            setMode('encode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'encode'
               ? 'bg-blue-600 text-white'
@@ -118,7 +177,10 @@ function ImageSteganography() {
           Encode
         </button>
         <button
-          onClick={() => setMode('decode')}
+          onClick={() => {
+            logger.info('[ImageSteganography] set mode: decode');
+            setMode('decode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'decode'
               ? 'bg-blue-600 text-white'
@@ -142,7 +204,10 @@ function ImageSteganography() {
             class="hidden"
           />
           <button
-            onClick={() => fileInputRef?.click()}
+            onClick={() => {
+              logger.info('[ImageSteganography] open file picker');
+              fileInputRef?.click();
+            }}
             class="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <Upload class="w-5 h-5" />
@@ -159,7 +224,10 @@ function ImageSteganography() {
             </label>
             <textarea
               value={secretMessage()}
-              onInput={(e) => setSecretMessage(e.currentTarget.value)}
+              onInput={(e) => {
+                console.log('[ImageSteganography] secretMessage input len', e.currentTarget.value.length);
+                setSecretMessage(e.currentTarget.value);
+              }}
               placeholder="Enter your secret message..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}

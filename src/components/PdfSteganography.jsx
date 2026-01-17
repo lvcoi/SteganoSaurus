@@ -1,6 +1,6 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
 import { Download, FileText } from 'lucide-solid';
-
+import { logger } from '../utils/logger.js';
 const ZERO_WIDTH_CHARS = {
   '0': '\u200B',
   '1': '\u200C',
@@ -12,64 +12,94 @@ function PdfSteganography() {
   const [coverText, setCoverText] = createSignal('This is a sample document that contains hidden information. You can edit this text to be anything you want.');
   const [decodedMessage, setDecodedMessage] = createSignal('');
 
+  onMount(() => {
+    logger.info('[PdfSteganography] mounted');
+  });
+
   const encodeMessage = () => {
-    if (!secretMessage() || !coverText()) return;
+    logger.info('[PdfSteganography] encodeMessage invoked');
+    try {
+      if (!secretMessage() || !coverText()) {
+        logger.warn('[PdfSteganography] encodeMessage aborted: missing secret or coverText');
+        return;
+      }
 
-    const binary = secretMessage()
-      .split('')
-      .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
-      .join('');
+      const binary = secretMessage()
+        .split('')
+        .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
+        .join('');
 
-    const encoded = binary
-      .split('')
-      .map(bit => {
-        if (bit === '0') return ZERO_WIDTH_CHARS['0'];
-        else return ZERO_WIDTH_CHARS['1'];
-      })
-      .join('');
+      const encoded = binary
+        .split('')
+        .map(bit => {
+          if (bit === '0') return ZERO_WIDTH_CHARS['0'];
+          else return ZERO_WIDTH_CHARS['1'];
+        })
+        .join('');
 
-    return coverText() + encoded + '###END###';
+      const result = coverText() + encoded + '###END###';
+      logger.info('[PdfSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
+      return result;
+    } catch (err) {
+      logger.error('[PdfSteganography] encodeMessage error', err);
+    }
   };
 
   const decodeMessage = () => {
-    if (!coverText()) return;
-
-    const zwChars = coverText()
-      .split('')
-      .filter(char => Object.values(ZERO_WIDTH_CHARS).includes(char))
-      .map(char => {
-        if (char === ZERO_WIDTH_CHARS['0']) return '0';
-        else return '1';
-      })
-      .join('');
-
-    let decoded = '';
-    for (let i = 0; i < zwChars.length; i += 8) {
-      const byte = zwChars.slice(i, i + 8);
-      if (byte.length === 8) {
-        decoded += String.fromCharCode(parseInt(byte, 2));
+    logger.info('[PdfSteganography] decodeMessage invoked');
+    try {
+      if (!coverText()) {
+        logger.warn('[PdfSteganography] decodeMessage aborted: no coverText');
+        return;
       }
-    }
 
-    setDecodedMessage(decoded);
+      const zwChars = coverText()
+        .split('')
+        .filter(char => Object.values(ZERO_WIDTH_CHARS).includes(char))
+        .map(char => {
+          if (char === ZERO_WIDTH_CHARS['0']) return '0';
+          else return '1';
+        })
+        .join('');
+
+      let decoded = '';
+      for (let i = 0; i < zwChars.length; i += 8) {
+        const byte = zwChars.slice(i, i + 8);
+        if (byte.length === 8) {
+          decoded += String.fromCharCode(parseInt(byte, 2));
+        }
+      }
+
+      setDecodedMessage(decoded);
+      logger.info('[PdfSteganography] decodeMessage complete', { decodedLen: decoded.length });
+    } catch (err) {
+      logger.error('[PdfSteganography] decodeMessage error', err);
+    }
   };
 
   const downloadAsText = () => {
-    const encodedText = encodeMessage();
-    if (!encodedText) return;
+    logger.info('[PdfSteganography] downloadAsText clicked');
+    try {
+      const encodedText = encodeMessage();
+      if (!encodedText) return;
 
-    const blob = new Blob([encodedText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'stego-document.txt';
-    link.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([encodedText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'stego-document.txt';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      logger.error('[PdfSteganography] downloadAsText error', err);
+    }
   };
 
   const downloadAsPdf = async () => {
-    const encodedText = encodeMessage();
-    if (!encodedText) return;
+    logger.info('[PdfSteganography] downloadAsPdf clicked');
+    try {
+      const encodedText = encodeMessage();
+      if (!encodedText) return;
 
     const pdfContent = `%PDF-1.4
 1 0 obj
@@ -130,20 +160,26 @@ startxref
 ${400 + encodedText.length}
 %%EOF`;
 
-    const blob = new Blob([pdfContent], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'stego-document.pdf';
-    link.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([pdfContent], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'stego-document.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      logger.error('[PdfSteganography] downloadAsPdf error', err);
+    }
   };
 
   return (
     <div class="space-y-6">
       <div class="flex gap-4 mb-6">
         <button
-          onClick={() => setMode('encode')}
+          onClick={() => {
+            logger.info('[PdfSteganography] set mode: encode');
+            setMode('encode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'encode'
               ? 'bg-blue-600 text-white'
@@ -153,7 +189,10 @@ ${400 + encodedText.length}
           Encode
         </button>
         <button
-          onClick={() => setMode('decode')}
+          onClick={() => {
+            logger.info('[PdfSteganography] set mode: decode');
+            setMode('decode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'decode'
               ? 'bg-blue-600 text-white'
@@ -172,7 +211,10 @@ ${400 + encodedText.length}
             </label>
             <textarea
               value={secretMessage()}
-              onInput={(e) => setSecretMessage(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.info('[PdfSteganography] secretMessage input len', e.currentTarget.value.length);
+                setSecretMessage(e.currentTarget.value);
+              }}
               placeholder="Enter your secret message..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}
@@ -185,7 +227,10 @@ ${400 + encodedText.length}
             </label>
             <textarea
               value={coverText()}
-              onInput={(e) => setCoverText(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.info('[PdfSteganography] coverText input len', e.currentTarget.value.length);
+                setCoverText(e.currentTarget.value);
+              }}
               placeholder="Enter the visible text for your document..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={6}
@@ -219,7 +264,10 @@ ${400 + encodedText.length}
             </label>
             <textarea
               value={coverText()}
-              onInput={(e) => setCoverText(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.info('[PdfSteganography] coverText input len', e.currentTarget.value.length);
+                setCoverText(e.currentTarget.value);
+              }}
               placeholder="Paste the text from your encoded document here..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={6}
