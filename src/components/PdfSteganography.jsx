@@ -159,8 +159,8 @@ function PdfSteganography() {
   };
 
   return (
-    <div class="space-y-6">
-      <div class="flex gap-4 mb-6">
+    <div class="space-y-7">
+      <div class="flex gap-3 p-1.5 bg-gray-100 rounded-xl">
         <button
           onClick={() => {
             logger.info('[PdfSteganography] set mode: encode');
@@ -168,10 +168,10 @@ function PdfSteganography() {
             setDecodedMessage('');
             if (fileInputRef) fileInputRef.value = '';
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'encode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Encode
@@ -183,10 +183,10 @@ function PdfSteganography() {
             setSecretMessage('');
             if (fileInputRef) fileInputRef.value = '';
           }}
-          class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+          class={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
             mode() === 'decode'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+              : 'text-gray-700 hover:bg-white/50'
           }`}
         >
           Decode
@@ -194,7 +194,7 @@ function PdfSteganography() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-semibold text-gray-800 mb-3">
           Upload PDF
         </label>
         <div class="flex items-center gap-4">
@@ -210,16 +210,16 @@ function PdfSteganography() {
               logger.info('[PdfSteganography] open file picker');
               fileInputRef?.click();
             }}
-            class="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            class="flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-gray-100 to-gray-50 border-2 border-gray-200 text-gray-700 rounded-xl hover:border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-white transition-all duration-200 font-semibold shadow-sm"
           >
             <Upload class="w-5 h-5" />
             Choose PDF
           </button>
           {mode() === 'encode' && encodePdfName() && (
-            <span class="text-sm text-gray-500 truncate">{encodePdfName()}</span>
+            <span class="text-sm text-gray-600 truncate font-medium">{encodePdfName()}</span>
           )}
           {mode() === 'decode' && decodePdfName() && (
-            <span class="text-sm text-gray-500 truncate">{decodePdfName()}</span>
+            <span class="text-sm text-gray-600 truncate font-medium">{decodePdfName()}</span>
           )}
         </div>
       </div>
@@ -227,7 +227,7 @@ function PdfSteganography() {
       {mode() === 'encode' ? (
         <div class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-semibold text-gray-800 mb-3">
               Secret Message
             </label>
             <textarea
@@ -237,7 +237,7 @@ function PdfSteganography() {
                 setSecretMessage(e.currentTarget.value);
               }}
               placeholder="Enter your secret message..."
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              class="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 bg-white hover:border-gray-300"
               rows={4}
             />
           </div>
@@ -245,7 +245,7 @@ function PdfSteganography() {
           <button
             onClick={downloadEncodedPdf}
             disabled={!secretMessage() || !encodePdfBytes()}
-            class="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
           >
             <Download class="w-5 h-5" />
             Download PDF with Hidden Message
@@ -256,17 +256,17 @@ function PdfSteganography() {
           <button
             onClick={decodeMessage}
             disabled={!decodePdfBytes()}
-            class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
           >
             Reveal Hidden Message
           </button>
 
           {decodedMessage() && (
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5">
+              <label class="block text-sm font-semibold text-gray-800 mb-3">
                 Decoded Message
               </label>
-              <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-green-50 border-green-200 whitespace-pre-wrap">
+              <div class="px-4 py-4 bg-white border-2 border-green-300 rounded-xl shadow-sm whitespace-pre-wrap">
                 {decodedMessage()}
               </div>
             </div>
@@ -274,10 +274,19 @@ function PdfSteganography() {
         </div>
       )}
 
-      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p class="text-sm text-blue-800">
-          <strong>How it works:</strong> This method appends an encoded message to the end of the PDF file. PDF readers ignore trailing data, but the message can be recovered by scanning for the hidden marker.
-        </p>
+      <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 p-5">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -mr-16 -mt-16" />
+        <div class="relative flex items-start gap-3">
+          <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center mt-0.5">
+            <span class="text-white text-lg">💡</span>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-blue-900 mb-1">How it works</p>
+            <p class="text-sm text-blue-800 leading-relaxed">
+              This method appends an encoded message to the end of the PDF file. PDF readers ignore trailing data, but the message can be recovered by scanning for the hidden marker.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

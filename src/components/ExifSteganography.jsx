@@ -710,7 +710,7 @@ function ExifSteganography() {
   return (
     <div class="space-y-6">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-semibold text-gray-800 mb-3">
           Upload JPEG/JPG
         </label>
         <div class="flex flex-wrap items-center gap-4">
@@ -738,7 +738,7 @@ function ExifSteganography() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-semibold text-gray-800 mb-3">
           Or load from URL (downloads + converts to JPEG)
         </label>
         <div class="flex flex-wrap items-center gap-3">
@@ -747,7 +747,7 @@ function ExifSteganography() {
             value={urlInput()}
             onInput={(e) => setUrlInput(e.currentTarget.value)}
             placeholder="https://example.com/photo.png"
-            class="flex-1 min-w-[240px] px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="flex-1 min-w-[240px] px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white hover:border-gray-300"
           />
           <button
             onClick={fetchImageFromUrl}
