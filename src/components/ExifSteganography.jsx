@@ -1,4 +1,5 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
+import { logger } from '../utils/logger.js';
 import { Upload, Download } from 'lucide-solid';
 
 function ExifSteganography() {
@@ -9,67 +10,119 @@ function ExifSteganography() {
   const [originalImage, setOriginalImage] = createSignal(null);
   let fileInputRef;
 
+  onMount(() => {
+    logger.info('[ExifSteganography] mounted');
+  });
+
   const handleImageUpload = (e) => {
-    const file = e.currentTarget.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result;
-      setOriginalImage(result);
-      setImagePreview(result);
-
-      if (mode() === 'decode') {
-        decodeFromImage(result);
+    try {
+      const file = e.currentTarget.files?.[0];
+      if (!file) {
+        logger.warn('[ExifSteganography] handleImageUpload: no file selected');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      logger.info('[ExifSteganography] handleImageUpload file', { name: file.name, size: file.size, type: file.type });
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result;
+        setOriginalImage(result);
+        setImagePreview(result);
+        logger.debug('[ExifSteganography] image loaded and preview set');
+
+        if (mode() === 'decode') {
+          logger.info('[ExifSteganography] auto-decoding from uploaded image');
+          decodeFromImage(result);
+        }
+      };
+      reader.onerror = (err) => {
+        logger.error('[ExifSteganography] FileReader error', err);
+        logger.userError('Failed to read image file.', { err });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      logger.error('[ExifSteganography] handleImageUpload error', err);
+      logger.userError('Image upload error.', { err });
+    }
   };
 
   const decodeFromImage = (dataUrl) => {
-    const marker = '###EXIF_DATA:';
-    const endMarker = ':END_EXIF###';
-
-    const startIdx = dataUrl.indexOf(marker);
-    if (startIdx === -1) {
-      setDecodedMessage('No hidden message found in this image.');
-      return;
-    }
-
-    const endIdx = dataUrl.indexOf(endMarker, startIdx);
-    if (endIdx === -1) {
-      setDecodedMessage('Corrupted hidden message.');
-      return;
-    }
-
-    const encodedMessage = dataUrl.substring(startIdx + marker.length, endIdx);
+    logger.info('[ExifSteganography] decodeFromImage invoked');
     try {
-      const decoded = atob(encodedMessage);
-      setDecodedMessage(decoded);
-    } catch (e) {
+      const marker = '###EXIF_DATA:';
+      const endMarker = ':END_EXIF###';
+
+      const startIdx = dataUrl.indexOf(marker);
+      if (startIdx === -1) {
+        logger.warn('[ExifSteganography] no marker found');
+        setDecodedMessage('No hidden message found in this image.');
+        logger.userError('No hidden message found in this image.');
+        return;
+      }
+
+      const endIdx = dataUrl.indexOf(endMarker, startIdx);
+      if (endIdx === -1) {
+        logger.warn('[ExifSteganography] end marker missing');
+        setDecodedMessage('Corrupted hidden message.');
+        logger.userError('Corrupted hidden message.');
+        return;
+      }
+
+      const encodedMessage = dataUrl.substring(startIdx + marker.length, endIdx);
+      try {
+        const decoded = atob(encodedMessage);
+        setDecodedMessage(decoded);
+        logger.info('[ExifSteganography] decode complete', { decodedLen: decoded.length });
+      } catch (e) {
+        logger.error('[ExifSteganography] atob failed', e);
+        setDecodedMessage('Error decoding message.');
+        logger.userError('Error decoding message.', { err: e });
+      }
+    } catch (err) {
+      logger.error('[ExifSteganography] decodeFromImage error', err);
       setDecodedMessage('Error decoding message.');
+      logger.userError('Error decoding message.', { err });
     }
   };
 
   const encodeMessage = () => {
-    if (!originalImage() || !secretMessage()) return;
+    logger.info('[ExifSteganography] encodeMessage invoked');
+    try {
+      if (!originalImage() || !secretMessage()) {
+        logger.warn('[ExifSteganography] encodeMessage aborted: missing image or secret');
+        return;
+      }
 
-    const encodedMessage = btoa(secretMessage());
-    const marker = '###EXIF_DATA:' + encodedMessage + ':END_EXIF###';
+      const encodedMessage = btoa(secretMessage());
+      const marker = '###EXIF_DATA:' + encodedMessage + ':END_EXIF###';
 
-    const [header, base64Data] = originalImage().split(',');
-    const newDataUrl = header + ',' + marker + base64Data;
+      const [header, base64Data] = originalImage().split(',');
+      const newDataUrl = header + ',' + marker + base64Data;
 
-    setImagePreview(newDataUrl);
+      setImagePreview(newDataUrl);
+      logger.info('[ExifSteganography] encode complete', { secretLen: secretMessage().length, previewLen: newDataUrl.length });
+    } catch (err) {
+      logger.error('[ExifSteganography] encodeMessage error', err);
+      logger.userError('Failed to encode message into EXIF.', { err });
+    }
   };
 
   const downloadImage = () => {
-    if (!imagePreview()) return;
+    logger.info('[ExifSteganography] downloadImage clicked');
+    try {
+      if (!imagePreview()) {
+        logger.warn('[ExifSteganography] no imagePreview to download');
+        return;
+      }
 
-    const link = document.createElement('a');
-    link.download = 'stego-exif-image.png';
-    link.href = imagePreview();
-    link.click();
+      const link = document.createElement('a');
+      link.download = 'stego-exif-image.png';
+      link.href = imagePreview();
+      link.click();
+    } catch (err) {
+      logger.error('[ExifSteganography] downloadImage error', err);
+      logger.userError('Failed to generate download.', { err });
+    }
   };
 
   return (
@@ -77,6 +130,7 @@ function ExifSteganography() {
       <div class="flex gap-4 mb-6">
         <button
           onClick={() => {
+            logger.info('[ExifSteganography] set mode: encode');
             setMode('encode');
             setDecodedMessage('');
           }}
@@ -90,6 +144,7 @@ function ExifSteganography() {
         </button>
         <button
           onClick={() => {
+            logger.info('[ExifSteganography] set mode: decode');
             setMode('decode');
             setSecretMessage('');
           }}
@@ -116,7 +171,10 @@ function ExifSteganography() {
             class="hidden"
           />
           <button
-            onClick={() => fileInputRef?.click()}
+            onClick={() => {
+              logger.info('[ExifSteganography] open file picker');
+              fileInputRef?.click();
+            }}
             class="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <Upload class="w-5 h-5" />
@@ -133,7 +191,10 @@ function ExifSteganography() {
             </label>
             <textarea
               value={secretMessage()}
-              onInput={(e) => setSecretMessage(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.debug('[ExifSteganography] secretMessage input len', e.currentTarget.value.length);
+                setSecretMessage(e.currentTarget.value);
+              }}
               placeholder="Enter your secret message..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}

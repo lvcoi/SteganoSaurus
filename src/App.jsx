@@ -1,13 +1,30 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount, onCleanup, lazy, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { Lock, Image, FileText, Tag, Smile } from 'lucide-solid';
-import EmojiSteganography from './components/EmojiSteganography.jsx';
-import ImageSteganography from './components/ImageSteganography.jsx';
-import PdfSteganography from './components/PdfSteganography.jsx';
-import ExifSteganography from './components/ExifSteganography.jsx';
+import { logger } from './utils/logger.js';
+
+const EmojiSteganography = lazy(() => import('./components/EmojiSteganography.jsx'));
+const ImageSteganography = lazy(() => import('./components/ImageSteganography.jsx'));
+const PdfSteganography = lazy(() => import('./components/PdfSteganography.jsx'));
+const ExifSteganography = lazy(() => import('./components/ExifSteganography.jsx'));
 
 function App() {
   const [activeTab, setActiveTab] = createSignal('emoji');
+  const [errorVisible, setErrorVisible] = createSignal(false);
+  const [errorText, setErrorText] = createSignal('');
+
+  onMount(() => {
+    logger.info('[App] mounted');
+    const handler = (e) => {
+      const msg = e?.detail?.message || 'An unexpected error occurred';
+      setErrorText(msg);
+      setErrorVisible(true);
+    };
+    window.addEventListener('steg:error', handler);
+    onCleanup(() => {
+      window.removeEventListener('steg:error', handler);
+    });
+  });
 
   const tabs = [
     { id: 'emoji', label: 'Emoji', icon: Smile },
@@ -37,7 +54,10 @@ function App() {
               {tabs.map((tab) => {
                 return (
                   <button
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      logger.info('[App] switching tab to', tab.id);
+                      setActiveTab(tab.id);
+                    }}
                     class={`flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors ${
                       activeTab() === tab.id
                         ? 'border-blue-600 text-blue-600'
@@ -55,10 +75,18 @@ function App() {
           </div>
 
           <div class="p-8">
-            {activeTab() === 'emoji' && <EmojiSteganography />}
-            {activeTab() === 'image' && <ImageSteganography />}
-            {activeTab() === 'pdf' && <PdfSteganography />}
-            {activeTab() === 'exif' && <ExifSteganography />}
+            {errorVisible() && (
+              <div class="mb-6 rounded-lg border border-red-200 bg-red-50 text-red-800 p-4 flex items-start justify-between gap-4">
+                <div class="text-sm">{errorText()}</div>
+                <button class="text-sm underline" onClick={() => setErrorVisible(false)}>Dismiss</button>
+              </div>
+            )}
+            <Suspense fallback={<div class="text-sm text-gray-500">Loading tools...</div>}>
+              {activeTab() === 'emoji' && <EmojiSteganography />}
+              {activeTab() === 'image' && <ImageSteganography />}
+              {activeTab() === 'pdf' && <PdfSteganography />}
+              {activeTab() === 'exif' && <ExifSteganography />}
+            </Suspense>
           </div>
         </div>
 

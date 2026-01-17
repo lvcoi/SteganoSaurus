@@ -1,74 +1,116 @@
-import { createSignal } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
+import { logger } from '../utils/logger.js';
 import { Copy, Check } from 'lucide-solid';
 
 const ZERO_WIDTH_CHARS = {
   '0': '\u200B',
   '1': '\u200C',
-  '2': '\u200D',
-  '3': '\uFEFF',
 };
+const MESSAGE_TERMINATOR = '###END###';
 
 function EmojiSteganography() {
   const [mode, setMode] = createSignal('encode');
   const [secretMessage, setSecretMessage] = createSignal('');
-  const [coverEmoji, setCoverEmoji] = createSignal('🌟✨🎉🎊🎈');
+  const [coverEmoji, setCoverEmoji] = createSignal('🌟✨🎉🎊');
   const [output, setOutput] = createSignal('');
   const [copied, setCopied] = createSignal(false);
 
+  onMount(() => {
+    logger.info('[EmojiSteganography] mounted');
+  });
+
   const encodeMessage = () => {
-    if (!secretMessage() || !coverEmoji()) return;
+    logger.info('[EmojiSteganography] encodeMessage invoked');
+    try {
+      if (!secretMessage() || !coverEmoji()) {
+        logger.warn('[EmojiSteganography] encodeMessage aborted: missing secretMessage or coverEmoji');
+        return;
+      }
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(secretMessage() + MESSAGE_TERMINATOR);
+      let binary = '';
+      for (const b of bytes) binary += b.toString(2).padStart(8, '0');
 
-    const binary = secretMessage()
-      .split('')
-      .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
-      .join('');
+      const encoded = binary
+        .split('')
+        .map(bit => {
+          if (bit === '0') return ZERO_WIDTH_CHARS['0'];
+          else return ZERO_WIDTH_CHARS['1'];
+        })
+        .join('');
 
-    const encoded = binary
-      .split('')
-      .map(bit => {
-        if (bit === '0') return ZERO_WIDTH_CHARS['0'];
-        else return ZERO_WIDTH_CHARS['1'];
-      })
-      .join('');
-
-    const result = coverEmoji() + encoded;
-    setOutput(result);
+      const result = coverEmoji() + encoded;
+      setOutput(result);
+      logger.info('[EmojiSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
+    } catch (err) {
+      logger.error('[EmojiSteganography] encodeMessage error', err);
+      logger.userError('Failed to encode message into emoji.', { err });
+    }
   };
 
   const decodeMessage = () => {
-    if (!output()) return;
-
-    const zwChars = output()
-      .split('')
-      .filter(char => Object.values(ZERO_WIDTH_CHARS).includes(char))
-      .map(char => {
-        if (char === ZERO_WIDTH_CHARS['0']) return '0';
-        else return '1';
-      })
-      .join('');
-
-    let decoded = '';
-    for (let i = 0; i < zwChars.length; i += 8) {
-      const byte = zwChars.slice(i, i + 8);
-      if (byte.length === 8) {
-        decoded += String.fromCharCode(parseInt(byte, 2));
+    logger.info('[EmojiSteganography] decodeMessage invoked');
+    try {
+      if (!output()) {
+        logger.warn('[EmojiSteganography] decodeMessage aborted: no output present');
+        return;
       }
-    }
 
-    setSecretMessage(decoded);
+      const zwChars = output()
+        .split('')
+        .filter(char => char === ZERO_WIDTH_CHARS['0'] || char === ZERO_WIDTH_CHARS['1'])
+        .map(char => {
+          if (char === ZERO_WIDTH_CHARS['0']) return '0';
+          else return '1';
+        })
+        .join('');
+
+      const byteCount = Math.floor(zwChars.length / 8);
+      const bytes = new Uint8Array(byteCount);
+      for (let i = 0; i < byteCount; i++) {
+        const byteStr = zwChars.slice(i * 8, i * 8 + 8);
+        bytes[i] = parseInt(byteStr, 2);
+      }
+      const decoder = new TextDecoder();
+      const decoded = decoder.decode(bytes);
+      const terminatorIndex = decoded.indexOf(MESSAGE_TERMINATOR);
+      const message = terminatorIndex === -1 ? decoded : decoded.slice(0, terminatorIndex);
+
+      setSecretMessage(message);
+      logger.info('[EmojiSteganography] decodeMessage complete', { decodedLen: message.length });
+    } catch (err) {
+      logger.error('[EmojiSteganography] decodeMessage error', err);
+      logger.userError('Failed to decode message from emoji.', { err });
+    }
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(output());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    logger.info('[EmojiSteganography] copyToClipboard clicked');
+    try {
+      navigator.clipboard.writeText(output())
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+          logger.info('[EmojiSteganography] copied to clipboard');
+        })
+        .catch((err) => {
+          logger.error('[EmojiSteganography] clipboard write failed', err);
+          logger.userError('Clipboard write failed. Please copy manually.', { err });
+        });
+    } catch (err) {
+      logger.error('[EmojiSteganography] unexpected clipboard error', err);
+      logger.userError('Unexpected clipboard error.', { err });
+    }
   };
 
   return (
     <div class="space-y-6">
       <div class="flex gap-4 mb-6">
         <button
-          onClick={() => setMode('encode')}
+          onClick={() => {
+            logger.info('[EmojiSteganography] set mode: encode');
+            setMode('encode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'encode'
               ? 'bg-blue-600 text-white'
@@ -78,7 +120,10 @@ function EmojiSteganography() {
           Encode
         </button>
         <button
-          onClick={() => setMode('decode')}
+          onClick={() => {
+            logger.info('[EmojiSteganography] set mode: decode');
+            setMode('decode');
+          }}
           class={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
             mode() === 'decode'
               ? 'bg-blue-600 text-white'
@@ -97,7 +142,10 @@ function EmojiSteganography() {
             </label>
             <textarea
               value={secretMessage()}
-              onInput={(e) => setSecretMessage(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.debug('[EmojiSteganography] secretMessage input len', e.currentTarget.value.length);
+                setSecretMessage(e.currentTarget.value);
+              }}
               placeholder="Enter your secret message..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}
@@ -111,7 +159,10 @@ function EmojiSteganography() {
             <input
               type="text"
               value={coverEmoji()}
-              onInput={(e) => setCoverEmoji(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.debug('[EmojiSteganography] coverEmoji input len', e.currentTarget.value.length);
+                setCoverEmoji(e.currentTarget.value);
+              }}
               placeholder="🌟✨🎉"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-2xl"
             />
@@ -155,7 +206,10 @@ function EmojiSteganography() {
             </label>
             <textarea
               value={output()}
-              onInput={(e) => setOutput(e.currentTarget.value)}
+              onInput={(e) => {
+                logger.debug('[EmojiSteganography] output input len', e.currentTarget.value.length);
+                setOutput(e.currentTarget.value);
+              }}
               placeholder="Paste encoded emoji text here..."
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-2xl"
               rows={4}
