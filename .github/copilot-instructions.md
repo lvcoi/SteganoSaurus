@@ -7,7 +7,7 @@ SteganoSaurus is a client-side steganography web application that enables users 
 ## Tech Stack
 
 - **Framework**: SolidJS (reactive UI library)
-- **Language**: JavaScript (JSX)
+- **Language**: JavaScript with JSX (TypeScript definitions for Vite environment only)
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS v4
 - **Icons**: Lucide Solid
