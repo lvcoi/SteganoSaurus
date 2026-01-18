@@ -12,30 +12,49 @@
   <body>
     <div id="root">
       <div class="app-skeleton" role="status" aria-live="polite" aria-busy="true">
-        <div class="skeleton-header">
-          <div class="skeleton-orbit">
-            <span class="skeleton-core"></span>
-            <span class="skeleton-dot"></span>
-            <span class="skeleton-dot"></span>
-            <span class="skeleton-dot"></span>
+        <header class="skeleton-topbar">
+          <div class="skeleton-brand">
+            <div class="skeleton-logo"></div>
+            <div>
+              <div class="skeleton-title"></div>
+              <div class="skeleton-subtitle"></div>
+            </div>
           </div>
-          <div class="skeleton-title"></div>
-          <div class="skeleton-subtitle"></div>
+          <div class="skeleton-pill"></div>
+        </header>
+        <div class="skeleton-shell">
+          <aside class="skeleton-sidebar">
+            <div class="skeleton-section-label"></div>
+            <div class="skeleton-nav">
+              <div class="skeleton-nav-item"></div>
+              <div class="skeleton-nav-item"></div>
+              <div class="skeleton-nav-item"></div>
+              <div class="skeleton-nav-item"></div>
+            </div>
+            <div class="skeleton-info-card">
+              <div class="skeleton-info-title"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+          </aside>
+          <main class="skeleton-main">
+            <div class="skeleton-page-header">
+              <div class="skeleton-page-title"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-tabs">
+                <div class="skeleton-tab"></div>
+                <div class="skeleton-tab"></div>
+              </div>
+              <div class="skeleton-body">
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-line"></div>
+              </div>
+            </div>
+          </main>
         </div>
-        <div class="skeleton-card">
-          <div class="skeleton-tabs">
-            <div class="skeleton-tab"></div>
-            <div class="skeleton-tab"></div>
-            <div class="skeleton-tab"></div>
-            <div class="skeleton-tab"></div>
-          </div>
-          <div class="skeleton-body">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line short"></div>
-            <div class="skeleton-line"></div>
-          </div>
-        </div>
-        <p class="skeleton-caption">Loading tools…</p>
       </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>
@@ -53,55 +72,35 @@
         min-height: 100vh;
         display: flex;
         flex-direction: column;
+        gap: 0;
+      }
+      .skeleton-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 32px;
-        padding: 48px 24px;
-        text-align: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
       }
-      .skeleton-header {
-        display: grid;
+      .skeleton-brand {
+        display: flex;
+        align-items: center;
         gap: 12px;
-        place-items: center;
       }
-      .skeleton-orbit {
-        width: 88px;
-        height: 88px;
-        border-radius: 50%;
-        position: relative;
-        background: radial-gradient(circle, rgba(56, 189, 248, 0.18), rgba(59, 130, 246, 0.04));
-        display: grid;
-        place-items: center;
-        animation: pulse 1.8s ease-in-out infinite;
-      }
-      .skeleton-core {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #2563eb, #38bdf8);
-        box-shadow: 0 0 18px rgba(37, 99, 235, 0.45);
-        animation: coreGlow 2.4s ease-in-out infinite;
-      }
-      .skeleton-dot {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #1d4ed8;
-        opacity: 0.6;
-        animation: orbit 2.6s linear infinite;
-      }
-      .skeleton-dot:nth-child(2) {
-        animation-delay: 0s;
-      }
-      .skeleton-dot:nth-child(3) {
-        animation-delay: 0.9s;
-      }
-      .skeleton-dot:nth-child(4) {
-        animation-delay: 1.8s;
+      .skeleton-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        animation: pulse 2s ease-in-out infinite;
       }
       .skeleton-title {
-        width: 220px;
+        width: 180px;
         height: 18px;
         border-radius: 999px;
         background: linear-gradient(90deg, #334155, #475569, #334155);
@@ -109,15 +108,89 @@
         animation: shimmer 1.6s infinite;
       }
       .skeleton-subtitle {
-        width: 300px;
+        margin-top: 8px;
+        width: 140px;
         height: 12px;
         border-radius: 999px;
         background: linear-gradient(90deg, #334155, #3b82f6, #334155);
         background-size: 200% 100%;
         animation: shimmer 1.8s infinite;
       }
+      .skeleton-pill {
+        width: 140px;
+        height: 28px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1e293b, #334155, #1e293b);
+        background-size: 200% 100%;
+        animation: shimmer 1.6s infinite;
+      }
+      .skeleton-shell {
+        display: flex;
+        min-height: calc(100vh - 72px);
+      }
+      .skeleton-sidebar {
+        width: 260px;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 23, 42, 0.6);
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .skeleton-section-label {
+        width: 140px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1e293b, #3b82f6, #1e293b);
+        background-size: 200% 100%;
+        animation: shimmer 1.6s infinite;
+      }
+      .skeleton-nav {
+        display: grid;
+        gap: 10px;
+      }
+      .skeleton-nav-item {
+        height: 38px;
+        border-radius: 12px;
+        background: linear-gradient(90deg, #1e293b, #334155, #1e293b);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+      }
+      .skeleton-info-card {
+        margin-top: auto;
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.08);
+        display: grid;
+        gap: 10px;
+      }
+      .skeleton-info-title {
+        width: 90px;
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #94a3b8, #e2e8f0, #94a3b8);
+        background-size: 200% 100%;
+        animation: shimmer 1.6s infinite;
+      }
+      .skeleton-main {
+        flex: 1;
+        padding: 32px 32px 64px;
+      }
+      .skeleton-page-header {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .skeleton-page-title {
+        width: 280px;
+        height: 22px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #334155, #94a3b8, #334155);
+        background-size: 200% 100%;
+        animation: shimmer 1.6s infinite;
+      }
       .skeleton-card {
-        width: min(720px, 92vw);
         background: rgba(255, 255, 255, 0.95);
         border-radius: 24px;
         padding: 28px;
@@ -129,7 +202,7 @@
       }
       .skeleton-tabs {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
       }
       .skeleton-tab {
@@ -153,11 +226,6 @@
       .skeleton-line.short {
         width: 70%;
       }
-      .skeleton-caption {
-        font-size: 14px;
-        color: #93c5fd;
-        letter-spacing: 0.02em;
-      }
       @keyframes shimmer {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
@@ -175,14 +243,18 @@
         100% { transform: rotate(360deg) translateX(38px); }
       }
       @media (max-width: 640px) {
-        .skeleton-tabs {
-          grid-template-columns: repeat(2, 1fr);
+        .skeleton-shell {
+          flex-direction: column;
         }
-        .skeleton-title {
-          width: 180px;
+        .skeleton-sidebar {
+          width: 100%;
+          position: relative;
         }
-        .skeleton-subtitle {
-          width: 240px;
+        .skeleton-main {
+          padding: 24px;
+        }
+        .skeleton-pill {
+          width: 110px;
         }
       }
     </style>

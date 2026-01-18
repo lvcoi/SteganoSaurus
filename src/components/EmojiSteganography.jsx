@@ -10,11 +10,33 @@ const MESSAGE_TERMINATOR = '###END###';
 const SAMPLE_MESSAGE = 'Meet at dawn. Bring the map.';
 const SAMPLE_COVER = '🌟✨🎉🎊';
 
-const encodeEmojiMessage = (message, cover) => {
+const hashKeyToSeed = (key) => {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const obfuscateBinary = (binary, key) => {
+  if (!key) return binary;
+  let seed = hashKeyToSeed(key);
+  let result = '';
+  for (let i = 0; i < binary.length; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const maskBit = seed & 1 ? '1' : '0';
+    result += binary[i] === maskBit ? '0' : '1';
+  }
+  return result;
+};
+
+const encodeEmojiMessage = (message, cover, obfuscationKey) => {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(message + MESSAGE_TERMINATOR);
   let binary = '';
   for (const b of bytes) binary += b.toString(2).padStart(8, '0');
+  binary = obfuscateBinary(binary, obfuscationKey);
 
   const encoded = binary
     .split('')
@@ -30,6 +52,7 @@ function EmojiSteganography() {
   const [coverEmoji, setCoverEmoji] = createSignal('🌟✨🎉🎊');
   const [output, setOutput] = createSignal('');
   const [copied, setCopied] = createSignal(false);
+  const [obfuscationKey, setObfuscationKey] = createSignal('');
 
   onMount(() => {
     logger.info('[EmojiSteganography] mounted');
@@ -42,7 +65,7 @@ function EmojiSteganography() {
         logger.warn('[EmojiSteganography] encodeMessage aborted: missing secretMessage or coverEmoji');
         return;
       }
-      const result = encodeEmojiMessage(secretMessage(), coverEmoji());
+      const result = encodeEmojiMessage(secretMessage(), coverEmoji(), obfuscationKey());
       setOutput(result);
       logger.info('[EmojiSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
     } catch (err) {
@@ -68,10 +91,11 @@ function EmojiSteganography() {
         })
         .join('');
 
-      const byteCount = Math.floor(zwChars.length / 8);
+      const deobfuscatedBinary = obfuscateBinary(zwChars, obfuscationKey());
+      const byteCount = Math.floor(deobfuscatedBinary.length / 8);
       const bytes = new Uint8Array(byteCount);
       for (let i = 0; i < byteCount; i++) {
-        const byteStr = zwChars.slice(i * 8, i * 8 + 8);
+        const byteStr = deobfuscatedBinary.slice(i * 8, i * 8 + 8);
         bytes[i] = parseInt(byteStr, 2);
       }
       const decoder = new TextDecoder();
@@ -109,12 +133,14 @@ function EmojiSteganography() {
   const useSampleEncode = () => {
     setSecretMessage(SAMPLE_MESSAGE);
     setCoverEmoji(SAMPLE_COVER);
-    const result = encodeEmojiMessage(SAMPLE_MESSAGE, SAMPLE_COVER);
+    setObfuscationKey('');
+    const result = encodeEmojiMessage(SAMPLE_MESSAGE, SAMPLE_COVER, '');
     setOutput(result);
   };
 
   const useSampleDecode = () => {
-    const result = encodeEmojiMessage(SAMPLE_MESSAGE, SAMPLE_COVER);
+    setObfuscationKey('');
+    const result = encodeEmojiMessage(SAMPLE_MESSAGE, SAMPLE_COVER, '');
     setOutput(result);
   };
 
@@ -184,6 +210,25 @@ function EmojiSteganography() {
             />
           </div>
 
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-900">
+              Obfuscation Key (optional)
+            </label>
+            <input
+              type="text"
+              value={obfuscationKey()}
+              onInput={(e) => {
+                logger.debug('[EmojiSteganography] obfuscationKey input len', e.currentTarget.value.length);
+                setObfuscationKey(e.currentTarget.value);
+              }}
+              placeholder="Add a key to scramble the hidden bits"
+              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            <p class="mt-2 text-xs text-gray-500">
+              Use the same key when decoding to restore the message.
+            </p>
+          </div>
+
           <div class="flex gap-3">
             <button
               onClick={encodeMessage}
@@ -240,6 +285,25 @@ function EmojiSteganography() {
             />
           </div>
 
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-900">
+              Obfuscation Key (optional)
+            </label>
+            <input
+              type="text"
+              value={obfuscationKey()}
+              onInput={(e) => {
+                logger.debug('[EmojiSteganography] obfuscationKey decode input len', e.currentTarget.value.length);
+                setObfuscationKey(e.currentTarget.value);
+              }}
+              placeholder="Enter the key used during encoding"
+              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            <p class="mt-2 text-xs text-gray-500">
+              Without the matching key, the decoded text will look scrambled.
+            </p>
+          </div>
+
           <div class="flex gap-3">
             <button
               onClick={decodeMessage}
@@ -277,7 +341,7 @@ function EmojiSteganography() {
           <div>
             <p class="mb-1 text-sm font-medium text-gray-900">How it works</p>
             <p class="text-sm leading-relaxed text-gray-600">
-              This method hides your message using invisible zero-width characters between the emoji. The emoji look normal but contain hidden data.
+              This method hides your message using invisible zero-width characters between the emoji. Add an optional key to obfuscate the hidden bit pattern so it is harder to detect or guess.
             </p>
           </div>
         </div>

@@ -127,7 +127,7 @@ function App() {
 
             {/* Content with improved loading state */}
             <Suspense fallback={
-              <div class="rounded-2xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur-xl">
+              <div class="rounded-2xl border border-white/10 bg-white/95 p-8 text-slate-900 shadow-2xl backdrop-blur-xl">
                 <div class="flex items-center justify-center py-20">
                   <div class="text-center">
                     <div class="relative mb-4 inline-flex h-16 w-16 items-center justify-center">
@@ -140,7 +140,7 @@ function App() {
                 </div>
               </div>
             }>
-              <div class="rounded-2xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur-xl">
+              <div class="rounded-2xl border border-white/10 bg-white/95 p-8 text-slate-900 shadow-2xl backdrop-blur-xl">
                 {activeTab() === 'emoji' && <EmojiSteganography />}
                 {activeTab() === 'image' && <ImageSteganography />}
                 {activeTab() === 'pdf' && <PdfSteganography />}

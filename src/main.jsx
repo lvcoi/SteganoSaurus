@@ -7,6 +7,7 @@ const root = document.getElementById('root');
 
 if (root) {
   logger.info('[main] rendering App into #root');
+  root.textContent = '';
   render(() => <App />, root);
 } else {
   logger.error('[main] #root element not found');
