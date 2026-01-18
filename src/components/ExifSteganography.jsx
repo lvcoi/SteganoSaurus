@@ -1,5 +1,5 @@
 import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
-import { Download, MapPin, Plus, Trash2, Upload } from 'lucide-solid';
+import { Download, MapPin, Plus, Trash2, Upload, Camera, Globe, Save, Eraser, Eye, EyeOff, ImageIcon, Link } from 'lucide-solid';
 import * as piexif from 'piexifjs';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -383,6 +383,8 @@ function ExifSteganography() {
   const [urlInput, setUrlInput] = createSignal('');
   const [urlStatus, setUrlStatus] = createSignal('');
   const [urlError, setUrlError] = createSignal('');
+  const [isDragging, setIsDragging] = createSignal(false);
+  const [isProcessing, setIsProcessing] = createSignal(false);
 
   const [make, setMake] = createSignal('');
   const [model, setModel] = createSignal('');
@@ -739,11 +741,38 @@ function ExifSteganography() {
 
   return (
     <div class="space-y-6">
+      {/* Upload Section with Drag & Drop */}
       <div>
-        <label class="mb-2 block text-sm font-medium text-gray-900">
+        <label class="mb-2 block text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <Camera class="h-4 w-4 text-slate-400" />
           Upload JPEG/JPG
         </label>
-        <div class="flex flex-wrap items-center gap-4">
+        <div
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer?.files?.[0];
+            if (file && (file.type === 'image/jpeg' || file.type === 'image/jpg')) {
+              const reader = new FileReader();
+              reader.onload = async (event) => {
+                const result = event.target?.result;
+                if (result) await loadImageFromDataUrl(result, file.name);
+              };
+              reader.readAsDataURL(file);
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          class={`relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-8 transition-all duration-300 cursor-pointer ${
+            isDragging()
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+          }`}
+          onClick={() => fileInputRef?.click()}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -751,24 +780,30 @@ function ExifSteganography() {
             onChange={handleImageUpload}
             class="hidden"
           />
-          <button
-            onClick={() => {
-              logger.info('[ExifSteganography] open file picker');
-              fileInputRef?.click();
-            }}
-            class="flex items-center gap-2 px-6 py-3 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50"
-          >
-            <Upload class="h-4 w-4" />
-            Choose JPEG
-          </button>
-          {imageName() && (
-            <span class="text-sm text-gray-500 truncate">{imageName()}</span>
-          )}
+          <div class={`flex h-14 w-14 items-center justify-center rounded-xl transition-all duration-300 ${
+            isDragging() ? 'bg-blue-500 text-white scale-110' : 'bg-slate-100 text-slate-400'
+          }`}>
+            <Upload class="h-7 w-7" />
+          </div>
+          <div class="text-center">
+            <p class="font-semibold text-slate-700">
+              {isDragging() ? 'Drop JPEG here' : 'Click to upload or drag and drop'}
+            </p>
+            <p class="mt-1 text-sm text-slate-500">JPEG/JPG files only</p>
+          </div>
         </div>
+        {imageName() && (
+          <div class="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2">
+            <ImageIcon class="h-4 w-4 text-blue-600" />
+            <span class="truncate text-sm font-medium text-blue-700">{imageName()}</span>
+          </div>
+        )}
       </div>
 
+      {/* URL Input */}
       <div>
-        <label class="mb-2 block text-sm font-medium text-gray-900">
+        <label class="mb-2 block text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <Link class="h-4 w-4 text-slate-400" />
           Or load from URL (downloads + converts to JPEG)
         </label>
         <div class="flex flex-wrap items-center gap-3">
@@ -777,31 +812,48 @@ function ExifSteganography() {
             value={urlInput()}
             onInput={(e) => setUrlInput(e.currentTarget.value)}
             placeholder="https://example.com/photo.png"
-            class="flex-1 min-w-[240px] rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 flex-1 min-w-[240px]"
           />
           <button
             onClick={fetchImageFromUrl}
-            class="rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60"
+            disabled={!urlInput() || isProcessing()}
+            class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2"
+            data-tooltip="Download and convert image from URL"
           >
-            Fetch Image
+            {isProcessing() ? (
+              <>
+                <div class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <Globe class="h-4 w-4" />
+                Fetch Image
+              </>
+            )}
           </button>
         </div>
         {urlStatus() && (
-          <p class="text-sm text-gray-600 mt-2">{urlStatus()}</p>
+          <p class="text-sm text-emerald-600 mt-2 font-medium">✓ {urlStatus()}</p>
         )}
         {urlError() && (
-          <p class="text-sm text-red-600 mt-2">{urlError()}</p>
+          <p class="text-sm text-red-600 mt-2 font-medium">⚠️ {urlError()}</p>
         )}
       </div>
 
-      <div class="border border-blue-500/30 rounded-2xl p-6 space-y-6 bg-gradient-to-br from-blue-950/10 to-indigo-950/10 backdrop-blur-sm">
+      {/* EXIF Editor Section */}
+      <div class="rounded-2xl border-2 border-slate-200 p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50/30">
         <div class="flex flex-wrap items-center gap-4 justify-between">
-          <h3 class="text-lg font-semibold text-gray-900">Exif Editor</h3>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Camera class="h-5 w-5 text-blue-500" />
+            EXIF Editor
+          </h3>
           <div class="flex flex-wrap items-center gap-3">
             <select
               value={presetName()}
               onChange={(e) => setPresetName(e.currentTarget.value)}
-              class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 py-2.5 pr-10"
+              data-tooltip="Select a camera preset to auto-fill metadata"
             >
               <option value="">Choose a preset camera</option>
               {PRESETS.map((preset) => (
@@ -811,116 +863,132 @@ function ExifSteganography() {
             <button
               onClick={applyPreset}
               disabled={!presetName()}
-              class="rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+              class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2.5"
+              data-tooltip="Apply the selected camera preset"
             >
-              Apply preset
+              Apply Preset
             </button>
             <button
               onClick={applySampleMetadata}
-              class="rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50"
+              class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2.5"
+              data-tooltip="Fill in sample metadata values"
             >
-              Fill sample metadata
+              Fill Sample
             </button>
             <button
               onClick={() => setExifOpen((open) => !open)}
               disabled={!imageDataUrl()}
-              class="rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2.5 flex items-center gap-2"
+              data-tooltip={exifOpen() ? 'Hide custom metadata fields' : 'Show custom metadata fields'}
             >
-              {exifOpen() ? 'Hide' : 'View'}
+              {exifOpen() ? <EyeOff class="h-4 w-4" /> : <Eye class="h-4 w-4" />}
+              {exifOpen() ? 'Hide Custom' : 'Custom Fields'}
             </button>
           </div>
         </div>
 
+        {/* Standard EXIF Fields */}
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Make</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Make</label>
             <input
               type="text"
               value={make()}
               onInput={(e) => setMake(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="e.g., Apple, Canon, Sony"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Model</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Model</label>
             <input
               type="text"
               value={model()}
               onInput={(e) => setModel(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="e.g., iPhone 15 Pro, EOS R5"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Software</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Software</label>
             <input
               type="text"
               value={software()}
               onInput={(e) => setSoftware(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="e.g., iOS 17.2, Lightroom"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Lens Model</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Lens Model</label>
             <input
               type="text"
               value={lensModel()}
               onInput={(e) => setLensModel(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="e.g., RF 24-70mm F2.8"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Date/Time Original</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Date/Time Original</label>
             <input
               type="text"
               value={dateTimeOriginal()}
               onInput={(e) => setDateTimeOriginal(e.currentTarget.value)}
               placeholder="YYYY:MM:DD HH:MM:SS"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Image Description</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Image Description</label>
             <input
               type="text"
               value={imageDescription()}
               onInput={(e) => setImageDescription(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="Description of the image"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Artist</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Artist</label>
             <input
               type="text"
               value={artist()}
               onInput={(e) => setArtist(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="Photographer name"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">Copyright</label>
+            <label class="mb-2 block text-sm font-semibold text-slate-700">Copyright</label>
             <input
               type="text"
               value={copyright()}
               onInput={(e) => setCopyright(e.currentTarget.value)}
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="© 2025 Your Name"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
         </div>
 
+        {/* Custom Key/Value Pairs */}
         {exifOpen() && (
-          <div class="space-y-3">
+          <div class="space-y-4 rounded-xl border-2 border-slate-200 bg-white p-4">
             <div class="flex items-center justify-between">
-              <h4 class="text-sm font-semibold text-gray-900">Custom key/value metadata</h4>
+              <h4 class="text-sm font-bold text-slate-900">Custom Key/Value Metadata</h4>
               <button
                 onClick={addPair}
-                class="flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
+                class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2 px-4 flex items-center gap-2"
+                data-tooltip="Add a new custom metadata field"
               >
                 <Plus class="h-4 w-4" />
-                Add field
+                Add Field
               </button>
             </div>
             {customPairs().length === 0 && (
-              <p class="text-sm text-gray-500">Add key/value metadata to store in UserComment.</p>
+              <p class="text-sm text-slate-500 py-4 text-center bg-slate-50 rounded-lg">
+                Add key/value metadata to store in UserComment. Click "Add Field" to get started.
+              </p>
             )}
             {customPairs().map((pair, index) => (
               <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-center">
@@ -928,37 +996,43 @@ function ExifSteganography() {
                   type="text"
                   value={pair.key}
                   onInput={(e) => updatePair(index, 'key', e.currentTarget.value)}
-                  placeholder="Key"
-                  class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Key (e.g., Project)"
+                  class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                 />
                 <input
                   type="text"
                   value={pair.value}
                   onInput={(e) => updatePair(index, 'value', e.currentTarget.value)}
                   placeholder="Value"
-                  class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                 />
                 <button
                   onClick={() => removePair(index)}
-                  class="p-2 text-gray-500 hover:text-red-600"
+                  class="p-2.5 rounded-lg text-slate-400 transition-all duration-200 hover:bg-red-50 hover:text-red-600"
                   aria-label="Remove field"
+                  data-tooltip="Remove this field"
                 >
-                  <Trash2 class="h-4 w-4" />
+                  <Trash2 class="h-5 w-5" />
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        <div class="space-y-3">
+        {/* GPS Coordinates */}
+        <div class="space-y-4 rounded-xl border-2 border-slate-200 bg-white p-4">
           <div class="flex items-center justify-between">
-            <h4 class="text-sm font-semibold text-gray-900">GPS coordinates</h4>
+            <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <MapPin class="h-4 w-4 text-blue-500" />
+              GPS Coordinates
+            </h4>
             <button
               onClick={() => setMapOpen(true)}
-              class="flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
+              class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2 px-4 flex items-center gap-2"
+              data-tooltip="Open map to select location"
             >
               <MapPin class="h-4 w-4" />
-              Pick on map
+              Pick on Map
             </button>
           </div>
           <div class="grid gap-4 md:grid-cols-2">
@@ -966,103 +1040,136 @@ function ExifSteganography() {
               type="text"
               value={gpsLat()}
               onInput={(e) => setGpsLat(e.currentTarget.value)}
-              placeholder="Latitude (e.g. 37.7749)"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="Latitude (e.g., 37.7749)"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
             <input
               type="text"
               value={gpsLon()}
               onInput={(e) => setGpsLon(e.currentTarget.value)}
-              placeholder="Longitude (e.g. -122.4194)"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              placeholder="Longitude (e.g., -122.4194)"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
           </div>
+          {gpsLat() && gpsLon() && (
+            <p class="text-xs text-slate-500">
+              📍 Location: {gpsLat()}, {gpsLon()}
+            </p>
+          )}
         </div>
 
+        {/* Action Buttons */}
         <div class="flex flex-wrap gap-3">
           <button
             onClick={applyMetadata}
             disabled={!imageDataUrl()}
-            class="rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2"
+            data-tooltip="Apply all metadata changes to the image"
           >
-            Save
+            <Save class="h-4 w-4" />
+            Save Metadata
           </button>
           <button
             onClick={eraseMetadata}
             disabled={!imageDataUrl()}
-            class="rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+            class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2"
+            data-tooltip="Remove all EXIF data from the image"
           >
-            Erase all metadata
+            <Eraser class="h-4 w-4" />
+            Erase All Metadata
           </button>
         </div>
       </div>
 
+      {/* Image Preview */}
       <div class="space-y-4">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-gray-900">Image Preview</h3>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <ImageIcon class="h-5 w-5 text-slate-400" />
+            Image Preview
+          </h3>
           <div class="flex items-center gap-3">
             {previewUrl() && (
               <button
                 onClick={clearPreview}
-                class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+                class="text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
               >
-                Clear preview
+                Clear
               </button>
             )}
             <button
               onClick={downloadImage}
               disabled={!previewUrl()}
-              class="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2.5 flex items-center gap-2"
+              data-tooltip="Download image with modified EXIF data"
             >
               <Download class="h-4 w-4" />
               Download JPEG
             </button>
           </div>
         </div>
-        <div class="border border-gray-300 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center min-h-48 relative shadow-sm">
+        <div class="rounded-xl border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/30 p-4 flex items-center justify-center min-h-56 relative shadow-inner">
           {previewUrl() && (
             <button
               onClick={clearPreview}
-              class="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/90 border border-gray-200 text-gray-600 hover:text-gray-900"
+              class="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/90 border-2 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-all duration-200 flex items-center justify-center"
               aria-label="Clear preview"
+              data-tooltip="Clear preview"
             >
               ×
             </button>
           )}
           {previewUrl() ? (
-            <img src={previewUrl()} alt="Preview" class="max-w-full max-h-48 h-auto object-contain" />
+            <img src={previewUrl()} alt="Preview" class="max-w-full max-h-56 h-auto object-contain rounded-lg shadow-md" />
           ) : (
-            <span class="text-sm text-gray-500">Upload a JPEG or provide a URL to start editing metadata.</span>
+            <div class="text-center py-8">
+              <ImageIcon class="mx-auto h-12 w-12 text-slate-300" />
+              <p class="mt-3 text-sm font-medium text-slate-500">Upload a JPEG or provide a URL to start editing metadata</p>
+            </div>
           )}
         </div>
       </div>
 
+      {/* Map Modal */}
       {mapOpen() && (
-        <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div class="rounded-lg bg-white shadow-xl w-full max-w-3xl overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <h3 class="text-sm font-semibold text-gray-900">Select GPS location</h3>
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="rounded-2xl bg-white shadow-2xl w-full max-w-3xl overflow-hidden border-2 border-slate-200">
+            <div class="flex items-center justify-between px-6 py-4 border-b-2 border-slate-100">
+              <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <MapPin class="h-5 w-5 text-blue-500" />
+                Select GPS Location
+              </h3>
               <button
                 onClick={() => setMapOpen(false)}
-                class="text-sm text-gray-600 hover:text-gray-900"
+                class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 py-2 px-4"
               >
                 Close
               </button>
             </div>
-            <div class="p-4">
-              <div ref={mapContainerRef} class="h-80 w-full rounded-lg border border-gray-200" />
-              <p class="text-xs text-gray-500 mt-3">
-                Click on the map to set latitude and longitude. Values update immediately.
+            <div class="p-6">
+              <div ref={mapContainerRef} class="h-80 w-full rounded-xl border-2 border-slate-200 shadow-inner" />
+              <p class="text-xs text-slate-500 mt-4">
+                💡 Click anywhere on the map to set GPS coordinates. The values will update immediately.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      <div class="rounded-lg border border-blue-500/30 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm">
-        <p class="text-sm text-gray-600">
-          <strong class="font-medium text-gray-900">How it works:</strong> EXIF metadata is written into the JPEG file, including optional GPS coordinates and custom key/value data stored in UserComment.
-        </p>
+      {/* Info Box */}
+      <div class="rounded-xl border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 transition-all duration-300 hover:border-blue-200 hover:shadow-md">
+        <div class="flex items-start gap-3">
+          <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
+            <span class="text-sm">💡</span>
+          </div>
+          <div>
+            <p class="mb-1 text-sm font-bold text-slate-900">How it works</p>
+            <p class="text-sm leading-relaxed text-slate-600">
+              EXIF metadata is written into the JPEG file, including optional GPS coordinates and custom key/value data stored in UserComment.
+              You can edit camera information, add location data, or hide custom information in the metadata fields.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
