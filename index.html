@@ -41,13 +41,13 @@
     <script type="module" src="/src/main.jsx"></script>
     <style>
       :root {
-        color-scheme: light;
+        color-scheme: dark;
       }
       body {
         margin: 0;
         font-family: "Manrope", "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, #f8fafc, #e2e8f0);
-        color: #0f172a;
+        background: linear-gradient(to bottom right, #0f172a, #1e3a8a, #0f172a);
+        color: #e2e8f0;
       }
       .app-skeleton {
         min-height: 100vh;
@@ -104,7 +104,7 @@
         width: 220px;
         height: 18px;
         border-radius: 999px;
-        background: linear-gradient(90deg, #e2e8f0, #cbd5f5, #e2e8f0);
+        background: linear-gradient(90deg, #334155, #475569, #334155);
         background-size: 200% 100%;
         animation: shimmer 1.6s infinite;
       }
@@ -112,16 +112,18 @@
         width: 300px;
         height: 12px;
         border-radius: 999px;
-        background: linear-gradient(90deg, #e2e8f0, #dbeafe, #e2e8f0);
+        background: linear-gradient(90deg, #334155, #3b82f6, #334155);
         background-size: 200% 100%;
         animation: shimmer 1.8s infinite;
       }
       .skeleton-card {
         width: min(720px, 92vw);
-        background: #fff;
+        background: rgba(255, 255, 255, 0.95);
         border-radius: 24px;
         padding: 28px;
-        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
         display: grid;
         gap: 20px;
       }
@@ -153,7 +155,7 @@
       }
       .skeleton-caption {
         font-size: 14px;
-        color: #475569;
+        color: #93c5fd;
         letter-spacing: 0.02em;
       }
       @keyframes shimmer {
