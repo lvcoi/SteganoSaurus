@@ -1,6 +1,6 @@
 import { createSignal, onMount } from 'solid-js';
 import { logger } from '../utils/logger.js';
-import { Copy, Check } from 'lucide-solid';
+import { Copy, Check, Sparkles, Eye, EyeOff, Key } from 'lucide-solid';
 
 const ZERO_WIDTH_CHARS = {
   '0': '\u200B',
@@ -53,6 +53,8 @@ function EmojiSteganography() {
   const [output, setOutput] = createSignal('');
   const [copied, setCopied] = createSignal(false);
   const [obfuscationKey, setObfuscationKey] = createSignal('');
+  const [showKey, setShowKey] = createSignal(false);
+  const [isProcessing, setIsProcessing] = createSignal(false);
 
   onMount(() => {
     logger.info('[EmojiSteganography] mounted');
@@ -65,10 +67,15 @@ function EmojiSteganography() {
         logger.warn('[EmojiSteganography] encodeMessage aborted: missing secretMessage or coverEmoji');
         return;
       }
-      const result = encodeEmojiMessage(secretMessage(), coverEmoji(), obfuscationKey());
-      setOutput(result);
-      logger.info('[EmojiSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
+      setIsProcessing(true);
+      setTimeout(() => {
+        const result = encodeEmojiMessage(secretMessage(), coverEmoji(), obfuscationKey());
+        setOutput(result);
+        setIsProcessing(false);
+        logger.info('[EmojiSteganography] encodeMessage complete', { secretLen: secretMessage().length, outputLen: result.length });
+      }, 300);
     } catch (err) {
+      setIsProcessing(false);
       logger.error('[EmojiSteganography] encodeMessage error', err);
       logger.userError('Failed to encode message into emoji.', { err });
     }
@@ -81,31 +88,35 @@ function EmojiSteganography() {
         logger.warn('[EmojiSteganography] decodeMessage aborted: no output present');
         return;
       }
+      setIsProcessing(true);
+      setTimeout(() => {
+        const zwChars = output()
+          .split('')
+          .filter(char => char === ZERO_WIDTH_CHARS['0'] || char === ZERO_WIDTH_CHARS['1'])
+          .map(char => {
+            if (char === ZERO_WIDTH_CHARS['0']) return '0';
+            else return '1';
+          })
+          .join('');
 
-      const zwChars = output()
-        .split('')
-        .filter(char => char === ZERO_WIDTH_CHARS['0'] || char === ZERO_WIDTH_CHARS['1'])
-        .map(char => {
-          if (char === ZERO_WIDTH_CHARS['0']) return '0';
-          else return '1';
-        })
-        .join('');
+        const deobfuscatedBinary = obfuscateBinary(zwChars, obfuscationKey());
+        const byteCount = Math.floor(deobfuscatedBinary.length / 8);
+        const bytes = new Uint8Array(byteCount);
+        for (let i = 0; i < byteCount; i++) {
+          const byteStr = deobfuscatedBinary.slice(i * 8, i * 8 + 8);
+          bytes[i] = parseInt(byteStr, 2);
+        }
+        const decoder = new TextDecoder();
+        const decoded = decoder.decode(bytes);
+        const terminatorIndex = decoded.indexOf(MESSAGE_TERMINATOR);
+        const message = terminatorIndex === -1 ? decoded : decoded.slice(0, terminatorIndex);
 
-      const deobfuscatedBinary = obfuscateBinary(zwChars, obfuscationKey());
-      const byteCount = Math.floor(deobfuscatedBinary.length / 8);
-      const bytes = new Uint8Array(byteCount);
-      for (let i = 0; i < byteCount; i++) {
-        const byteStr = deobfuscatedBinary.slice(i * 8, i * 8 + 8);
-        bytes[i] = parseInt(byteStr, 2);
-      }
-      const decoder = new TextDecoder();
-      const decoded = decoder.decode(bytes);
-      const terminatorIndex = decoded.indexOf(MESSAGE_TERMINATOR);
-      const message = terminatorIndex === -1 ? decoded : decoded.slice(0, terminatorIndex);
-
-      setSecretMessage(message);
-      logger.info('[EmojiSteganography] decodeMessage complete', { decodedLen: message.length });
+        setSecretMessage(message);
+        setIsProcessing(false);
+        logger.info('[EmojiSteganography] decodeMessage complete', { decodedLen: message.length });
+      }, 300);
     } catch (err) {
+      setIsProcessing(false);
       logger.error('[EmojiSteganography] decodeMessage error', err);
       logger.userError('Failed to decode message from emoji.', { err });
     }
@@ -146,40 +157,50 @@ function EmojiSteganography() {
 
   return (
     <div class="space-y-6">
-      {/* Mode Toggle */}
-      <div class="inline-flex gap-1 rounded-lg border border-blue-500/30 bg-blue-950/30 p-1 backdrop-blur-sm">
+      {/* Mode Toggle - Enhanced */}
+      <div class="inline-flex gap-1 rounded-xl border-2 border-slate-200 bg-slate-100 p-1.5">
         <button
           onClick={() => {
             logger.info('[EmojiSteganography] set mode: encode');
             setMode('encode');
           }}
-          class={`rounded-md px-6 py-2 text-sm font-medium transition-all duration-200 ${
+          class={`rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-300 ${
             mode() === 'encode'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/50'
-              : 'text-blue-200 hover:bg-white/5 hover:text-white'
+              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+              : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
           }`}
+          style={mode() === 'encode' ? { 'box-shadow': '0 4px 12px rgba(59, 130, 246, 0.4)' } : {}}
+          data-tooltip="Hide a secret message in emoji"
         >
-          Encode
+          <span class="flex items-center gap-2">
+            <EyeOff class="h-4 w-4" />
+            Encode
+          </span>
         </button>
         <button
           onClick={() => {
             logger.info('[EmojiSteganography] set mode: decode');
             setMode('decode');
           }}
-          class={`rounded-md px-6 py-2 text-sm font-medium transition-all duration-200 ${
+          class={`rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-300 ${
             mode() === 'decode'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/50'
-              : 'text-blue-200 hover:bg-white/5 hover:text-white'
+              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+              : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
           }`}
+          style={mode() === 'decode' ? { 'box-shadow': '0 4px 12px rgba(59, 130, 246, 0.4)' } : {}}
+          data-tooltip="Reveal a hidden message from emoji"
         >
-          Decode
+          <span class="flex items-center gap-2">
+            <Eye class="h-4 w-4" />
+            Decode
+          </span>
         </button>
       </div>
 
       {mode() === 'encode' ? (
-        <div class="space-y-6">
+        <div class="space-y-5">
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">
+            <label class="mb-2 block text-sm font-semibold text-slate-700">
               Secret Message
             </label>
             <textarea
@@ -189,13 +210,16 @@ function EmojiSteganography() {
                 setSecretMessage(e.currentTarget.value);
               }}
               placeholder="Enter your secret message..."
-              class="w-full resize-none rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-all duration-300 resize-none hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
               rows={4}
             />
+            <p class="mt-2 text-xs text-slate-500">
+              {secretMessage().length} characters
+            </p>
           </div>
 
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">
+            <label class="mb-2 block text-sm font-semibold text-slate-700">
               Cover Emoji Text
             </label>
             <input
@@ -206,71 +230,103 @@ function EmojiSteganography() {
                 setCoverEmoji(e.currentTarget.value);
               }}
               placeholder="🌟✨🎉"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-2xl shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-2xl text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
             />
+            <p class="mt-2 text-xs text-slate-500">
+              This text will be visible—the secret is hidden within it
+            </p>
           </div>
 
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">
+            <label class="mb-2 block text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Key class="h-4 w-4 text-slate-400" />
               Obfuscation Key (optional)
             </label>
-            <input
-              type="text"
-              value={obfuscationKey()}
-              onInput={(e) => {
-                logger.debug('[EmojiSteganography] obfuscationKey input len', e.currentTarget.value.length);
-                setObfuscationKey(e.currentTarget.value);
-              }}
-              placeholder="Add a key to scramble the hidden bits"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            <p class="mt-2 text-xs text-gray-500">
-              Use the same key when decoding to restore the message.
+            <div class="relative">
+              <input
+                type={showKey() ? 'text' : 'password'}
+                value={obfuscationKey()}
+                onInput={(e) => {
+                  logger.debug('[EmojiSteganography] obfuscationKey input len', e.currentTarget.value.length);
+                  setObfuscationKey(e.currentTarget.value);
+                }}
+                placeholder="Add a key to scramble the hidden bits"
+                class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey())}
+                class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 transition-colors hover:text-slate-600"
+                data-tooltip={showKey() ? 'Hide key' : 'Show key'}
+              >
+                {showKey() ? <EyeOff class="h-4 w-4" /> : <Eye class="h-4 w-4" />}
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-slate-500">
+              Use the same key when decoding to restore the message
             </p>
           </div>
 
           <div class="flex gap-3">
             <button
               onClick={encodeMessage}
-              class="group flex-1 rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60"
+              disabled={!secretMessage() || !coverEmoji() || isProcessing()}
+              class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 flex-1 flex items-center justify-center gap-2 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+              style={{ 'box-shadow': '0 4px 14px rgba(59, 130, 246, 0.4)' }}
+              data-tooltip="Embed your secret message into the emoji"
             >
-              Hide Message in Emoji
+              {isProcessing() ? (
+                <>
+                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Sparkles class="h-4 w-4" />
+                  Hide Message in Emoji
+                </>
+              )}
             </button>
             <button
               onClick={useSampleEncode}
-              class="rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50"
+              class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98]"
+              data-tooltip="Load example data to try it out"
             >
               Use Sample
             </button>
           </div>
 
           {output() && (
-            <div class="rounded-lg border border-green-200 bg-green-50 p-5">
-              <label class="mb-3 block text-sm font-medium text-gray-900">
+            <div class="rounded-xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-5 shadow-lg transition-all duration-300" style={{ animation: 'scale-in 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+              <label class="mb-2 block text-sm font-semibold text-slate-700">
                 Encoded Output
               </label>
               <div class="relative">
-                <div class="break-all rounded-lg border border-green-300 bg-white px-4 py-4 text-2xl">
+                <div class="break-all rounded-xl border-2 border-emerald-200 bg-white px-4 py-4 text-2xl shadow-inner">
                   {output()}
                 </div>
                 <button
                   onClick={copyToClipboard}
-                  class="absolute right-3 top-3 rounded-md border border-gray-300 bg-white p-2 transition-colors hover:bg-gray-50"
+                  class="absolute right-3 top-3 rounded-lg border-2 border-slate-200 bg-white p-2.5 shadow-sm transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 hover:scale-110 active:scale-95"
+                  data-tooltip={copied() ? 'Copied!' : 'Copy to clipboard'}
                 >
                   {copied() ? (
-                    <Check class="h-4 w-4 text-green-600" />
+                    <Check class="h-4 w-4 text-emerald-600" />
                   ) : (
-                    <Copy class="h-4 w-4 text-gray-600" />
+                    <Copy class="h-4 w-4 text-slate-600" />
                   )}
                 </button>
               </div>
+              <p class="mt-3 text-xs text-emerald-700">
+                ✓ Message hidden successfully! Copy and share this emoji text.
+              </p>
             </div>
           )}
         </div>
       ) : (
-        <div class="space-y-6">
+        <div class="space-y-5">
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">
+            <label class="mb-2 block text-sm font-semibold text-slate-700">
               Encoded Emoji Text
             </label>
             <textarea
@@ -280,68 +336,98 @@ function EmojiSteganography() {
                 setOutput(e.currentTarget.value);
               }}
               placeholder="Paste encoded emoji text here..."
-              class="w-full resize-none rounded-lg border border-gray-300 bg-white px-4 py-3 text-2xl shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-2xl text-slate-900 shadow-sm transition-all duration-300 resize-none hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
               rows={4}
             />
           </div>
 
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">
+            <label class="mb-2 block text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Key class="h-4 w-4 text-slate-400" />
               Obfuscation Key (optional)
             </label>
-            <input
-              type="text"
-              value={obfuscationKey()}
-              onInput={(e) => {
-                logger.debug('[EmojiSteganography] obfuscationKey decode input len', e.currentTarget.value.length);
-                setObfuscationKey(e.currentTarget.value);
-              }}
-              placeholder="Enter the key used during encoding"
-              class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            <p class="mt-2 text-xs text-gray-500">
-              Without the matching key, the decoded text will look scrambled.
+            <div class="relative">
+              <input
+                type={showKey() ? 'text' : 'password'}
+                value={obfuscationKey()}
+                onInput={(e) => {
+                  logger.debug('[EmojiSteganography] obfuscationKey decode input len', e.currentTarget.value.length);
+                  setObfuscationKey(e.currentTarget.value);
+                }}
+                placeholder="Enter the key used during encoding"
+                class="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-900 shadow-sm transition-all duration-300 hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey())}
+                class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 transition-colors hover:text-slate-600"
+                data-tooltip={showKey() ? 'Hide key' : 'Show key'}
+              >
+                {showKey() ? <EyeOff class="h-4 w-4" /> : <Eye class="h-4 w-4" />}
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-slate-500">
+              Without the matching key, the decoded text will look scrambled
             </p>
           </div>
 
           <div class="flex gap-3">
             <button
               onClick={decodeMessage}
-              class="flex-1 rounded-lg border border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-blue-500/50 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/60"
+              disabled={!output() || isProcessing()}
+              class="relative overflow-hidden rounded-xl border-2 border-blue-500 bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 flex-1 flex items-center justify-center gap-2 hover:scale-[1.02] hover:border-blue-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+              style={{ 'box-shadow': '0 4px 14px rgba(59, 130, 246, 0.4)' }}
+              data-tooltip="Extract the hidden message from the emoji"
             >
-              Reveal Hidden Message
+              {isProcessing() ? (
+                <>
+                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Eye class="h-4 w-4" />
+                  Reveal Hidden Message
+                </>
+              )}
             </button>
             <button
               onClick={useSampleDecode}
-              class="rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:scale-105 hover:border-blue-500/50 hover:bg-blue-50"
+              class="relative rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98]"
+              data-tooltip="Load example encoded emoji to try decoding"
             >
               Load Sample
             </button>
           </div>
 
           {secretMessage() && (
-            <div class="rounded-lg border border-green-500/50 bg-gradient-to-br from-green-50 to-emerald-50 p-5 shadow-lg">
-              <label class="mb-3 block text-sm font-medium text-gray-900">
+            <div class="rounded-xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-5 shadow-lg transition-all duration-300" style={{ animation: 'scale-in 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+              <label class="mb-2 block text-sm font-semibold text-slate-700">
                 Decoded Message
               </label>
-              <div class="rounded-lg border border-green-300 bg-white px-4 py-4 shadow-sm">
+              <div class="rounded-xl border-2 border-emerald-200 bg-white px-4 py-4 shadow-inner">
                 {secretMessage()}
               </div>
+              <p class="mt-3 text-xs text-emerald-700">
+                ✓ Hidden message revealed successfully!
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Info Box */}
-      <div class="rounded-lg border border-blue-500/30 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm">
+      {/* Info Box - Enhanced */}
+      <div class="rounded-xl border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 transition-all duration-300 hover:border-blue-200 hover:shadow-md">
         <div class="flex items-start gap-3">
-          <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-blue-500/20">
+          <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
             <span class="text-sm">💡</span>
           </div>
           <div>
-            <p class="mb-1 text-sm font-medium text-gray-900">How it works</p>
-            <p class="text-sm leading-relaxed text-gray-600">
-              This method hides your message using invisible zero-width characters between the emoji. Add an optional key to obfuscate the hidden bit pattern so it is harder to detect or guess.
+            <p class="mb-1 text-sm font-bold text-slate-900">How it works</p>
+            <p class="text-sm leading-relaxed text-slate-600">
+              This method hides your message using invisible zero-width characters between the emoji. 
+              Add an optional key to obfuscate the hidden bit pattern so it is harder to detect or guess.
+              The recipient needs to use the same key to decode the message correctly.
             </p>
           </div>
         </div>
